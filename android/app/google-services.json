@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "955927835101",
+    "project_id": "haikvitne",
+    "storage_bucket": "haikvitne.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:955927835101:android:3f20149b5734c5ac0ac634",
+        "android_client_info": {
+          "package_name": "com.haikvitne"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "955927835101-7h6hmhp2csdg0ocn9t1tj6b72js2cf6t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYtJpY9DCpzO43U-S7BNeDHny2wF6cgNI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "955927835101-7h6hmhp2csdg0ocn9t1tj6b72js2cf6t.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "955927835101-1a3iesqnkm2nb1m6ipi490fjj3np4iqg.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.haikvitne"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

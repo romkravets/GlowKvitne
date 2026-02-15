@@ -4,15 +4,13 @@ require Pod::Executable.execute_command('node', ['-p',
     "react-native/scripts/react_native_pods.rb",
     {paths: [process.argv[1]]},
   )', __dir__]).strip
-
+$RNFirebaseAsStaticFramework = true
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-linkage = ENV['USE_FRAMEWORKS']
-if linkage != nil
-  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
-  use_frameworks! :linkage => linkage.to_sym
-end
+# React Native Firebase requires frameworks when Firebase pods include Swift.
+# Static linkage generally works best with React Native.
+use_frameworks! :linkage => :static
 
 target 'HaiKvitne' do
   config = use_native_modules!
@@ -30,5 +28,13 @@ target 'HaiKvitne' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # With `use_frameworks!`, some React Native headers are treated as non-modular.
+    # Allow them to be included inside framework modules to avoid clang -Werror failures.
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      end
+    end
   end
 end

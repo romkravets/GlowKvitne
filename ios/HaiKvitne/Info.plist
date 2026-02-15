@@ -33,8 +33,14 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>GlowKvitne потребує доступ до камери для аналізу твоєї зовнішності</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>GlowKvitne потребує доступ для збереження результатів</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>GlowKvitne потребує доступ до фото для аналізу твоєї зовнішності</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
@@ -56,5 +62,16 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.955927835101-1a3iesqnkm2nb1m6ipi490fjj3np4iqg</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
