@@ -24,6 +24,7 @@ export type AuthStackParamList = {
 // Main Tab Navigator (нижні таби)
 export type MainTabParamList = {
   HomeTab: undefined;
+  ExploreTab: undefined;
   GalleryTab: undefined;
   PaletteTab: undefined;
   ProfileTab: undefined;
@@ -37,6 +38,15 @@ export type HomeStackParamList = {
   AnalysisLoading: { analysisId: string };
   AnalysisResults: { analysisResult: AnalysisResult };
   CelebrityDetails: { celebrities: any[] };
+};
+
+// Explore Stack (всередині Explore Tab)
+export type ExploreStackParamList = {
+  Explore: undefined;
+  Salons: undefined;
+  SalonDetails: { salonId: string; slug: string };
+  Articles: undefined;
+  ArticleDetails: { articleId: string; slug: string };
 };
 
 // Gallery Stack (всередині Gallery Tab)

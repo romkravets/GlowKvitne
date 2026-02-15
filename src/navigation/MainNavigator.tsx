@@ -10,6 +10,7 @@ import { MainTabParamList } from './types';
 
 // Stack Navigators для кожного табу
 import HomeStackNavigator from './HomeStackNavigator';
+import ExploreStackNavigator from './ExploreStackNavigator';
 import GalleryStackNavigator from './GalleryStackNavigator';
 import PaletteStackNavigator from './PaletteStackNavigator';
 import ProfileStackNavigator from './ProfileStackNavigator';
@@ -18,6 +19,7 @@ import ProfileStackNavigator from './ProfileStackNavigator';
 const TabIcon = ({ name, focused }: { name: string; focused: boolean }) => {
   const icons: { [key: string]: string } = {
     HomeTab: focused ? '🏠' : '🏡',
+    ExploreTab: focused ? '🔍' : '🔎',
     GalleryTab: focused ? '👗' : '👚',
     PaletteTab: focused ? '🎨' : '🖌️',
     ProfileTab: focused ? '👤' : '👥',
@@ -45,6 +47,14 @@ const MainNavigator: React.FC = () => {
         options={{
           tabBarLabel: 'Головна',
           title: 'Головна',
+        }}
+      />
+      <Tab.Screen
+        name="ExploreTab"
+        component={ExploreStackNavigator}
+        options={{
+          tabBarLabel: 'Огляд',
+          title: 'Огляд',
         }}
       />
       <Tab.Screen
