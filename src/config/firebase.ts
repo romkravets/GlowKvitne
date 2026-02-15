@@ -2,7 +2,7 @@
 // Note: These values should match your Firebase console project settings
 
 export const firebaseConfig = {
-  apiKey: 'AIzaSyAkw9pqLNiMbXl4JJwwPv3M3t4d5aMPS-s', // Replace with actual key
+  apiKey: 'AIzaSyAcPgEn8iktL7RyW_oqfH-8F-Cb9H7Cd0M',
   authDomain: 'haikvitne.firebaseapp.com',
   projectId: 'haikvitne',
   storageBucket: 'haikvitne.firebasestorage.app',
@@ -14,6 +14,9 @@ export const firebaseConfig = {
 export const API_CONFIG = {
   baseURL: __DEV__ ? 'http://localhost:3000' : 'https://api.glowkvitne.com',
   timeout: 300000, // 5 minutes for AI analysis
+  // iOS Client ID from GoogleService-Info.plist
+  googleWebClientId:
+    '955927835101-1a3iesqnkm2nb1m6ipi490fjj3np4iqg.apps.googleusercontent.com',
 };
 
 // Billing constants (matching backend)

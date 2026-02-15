@@ -5,9 +5,20 @@ import React, {
   useEffect,
   ReactNode,
 } from 'react';
-import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithCredential,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  updateProfile,
+  GoogleAuthProvider,
+} from '@react-native-firebase/auth';
+import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { API_CONFIG } from '../config/firebase';
 
 interface User {
@@ -44,6 +55,7 @@ interface AuthContextType {
     password: string,
     displayName: string,
   ) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -65,6 +77,13 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Configure Google Sign In
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: API_CONFIG.googleWebClientId, // from Firebase Console
+    });
+  }, []);
 
   // Setup axios interceptor for auth token
   useEffect(() => {
@@ -115,7 +134,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Listen to auth state changes
   useEffect(() => {
-    const subscriber = auth().onAuthStateChanged(async firebaseUser => {
+    const auth = getAuth();
+    const subscriber = onAuthStateChanged(auth, async firebaseUser => {
       if (firebaseUser) {
         await fetchUserData(firebaseUser);
       } else {
@@ -131,7 +151,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Sign in with email and password
   const signIn = async (email: string, password: string) => {
     try {
-      await auth().signInWithEmailAndPassword(email, password);
+      const auth = getAuth();
+      await signInWithEmailAndPassword(auth, email, password);
       // User state will be updated by onAuthStateChanged
     } catch (error: any) {
       console.error('Sign in error:', error);
@@ -147,13 +168,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   ) => {
     try {
       // Create Firebase user
-      const userCredential = await auth().createUserWithEmailAndPassword(
+      const auth = getAuth();
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
         email,
         password,
       );
 
       // Update display name
-      await userCredential.user.updateProfile({ displayName });
+      await updateProfile(userCredential.user, { displayName });
 
       // Get ID token
       const token = await userCredential.user.getIdToken();
@@ -177,10 +200,64 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  // Sign in with Google
+  const signInWithGoogle = async () => {
+    try {
+      // Check if device supports Google Play
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
+
+      // Get user info from Google
+      const userInfo = await GoogleSignin.signIn();
+
+      // Create Firebase credential
+      const googleCredential = GoogleAuthProvider.credential(
+        userInfo.data?.idToken ?? null,
+      );
+
+      // Sign in with Firebase
+      const auth = getAuth();
+      const userCredential = await signInWithCredential(
+        auth,
+        googleCredential,
+      );
+
+      // Get ID token
+      const token = await userCredential.user.getIdToken();
+
+      // Register/login in backend
+      await axios.post(
+        `${API_CONFIG.baseURL}/api/auth/google`,
+        {
+          email: userCredential.user.email,
+          displayName: userCredential.user.displayName,
+          photoURL: userCredential.user.photoURL,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      // User state will be updated by onAuthStateChanged
+    } catch (error: any) {
+      console.error('Google sign in error:', error);
+      if (error.code === 'GOOGLE_SIGNIN_CANCELLED') {
+        throw new Error('Вхід через Google скасовано');
+      } else if (error.code === 'IN_PROGRESS') {
+        throw new Error('Вхід вже виконується');
+      } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+        throw new Error('Google Play Services недоступний');
+      }
+      throw new Error(error.message || 'Помилка входу через Google');
+    }
+  };
+
   // Sign out
   const signOut = async () => {
     try {
-      await auth().signOut();
+      const auth = getAuth();
+      await firebaseSignOut(auth);
       await AsyncStorage.removeItem('authToken');
       setUser(null);
     } catch (error) {
@@ -191,7 +268,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Refresh user data from backend
   const refreshUser = async () => {
-    const firebaseUser = auth().currentUser;
+    const auth = getAuth();
+    const firebaseUser = auth.currentUser;
     if (firebaseUser) {
       await fetchUserData(firebaseUser);
     }
@@ -202,6 +280,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     loading,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
     refreshUser,
   };

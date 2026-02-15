@@ -31,7 +31,8 @@ const RegisterScreen = ({ navigation }: RegisterScreenProps) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { signUp, signInWithGoogle } = useAuth();
 
   const handleRegister = async () => {
     // Validation
@@ -64,6 +65,20 @@ const RegisterScreen = ({ navigation }: RegisterScreenProps) => {
       Alert.alert('Помилка реєстрації', error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      // Navigation will happen automatically via AuthContext
+    } catch (error: any) {
+      if (error.message !== 'Вхід через Google скасовано') {
+        Alert.alert('Помилка входу', error.message);
+      }
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -169,6 +184,34 @@ const RegisterScreen = ({ navigation }: RegisterScreenProps) => {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.registerButtonText}>Зареєструватися</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>АБО</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Google Sign In Button */}
+            <TouchableOpacity
+              style={[
+                styles.googleButton,
+                googleLoading && styles.googleButtonDisabled,
+              ]}
+              onPress={handleGoogleSignIn}
+              disabled={googleLoading}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color="#1a1a2e" />
+              ) : (
+                <>
+                  <Text style={styles.googleIcon}>G</Text>
+                  <Text style={styles.googleButtonText}>
+                    Увійти через Google
+                  </Text>
+                </>
               )}
             </TouchableOpacity>
 
@@ -280,6 +323,44 @@ const styles = StyleSheet.create({
   },
   registerButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  dividerText: {
+    color: '#666',
+    fontSize: 12,
+    marginHorizontal: 16,
+  },
+  googleButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  googleButtonDisabled: {
+    opacity: 0.6,
+  },
+  googleIcon: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#e94560',
+    marginRight: 12,
+  },
+  googleButtonText: {
+    color: '#1a1a2e',
     fontSize: 16,
     fontWeight: '600',
   },

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,11 @@ import {
   TouchableOpacity,
   ImageBackground,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useAuth } from '../context/AuthContext';
 
 type AuthStackParamList = {
   Welcome: undefined;
@@ -20,6 +23,22 @@ type WelcomeScreenProps = {
 };
 
 const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { signInWithGoogle } = useAuth();
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      if (error.message !== 'Вхід через Google скасовано') {
+        Alert.alert('Помилка входу', error.message);
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -58,6 +77,24 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
             onPress={() => navigation.navigate('Register')}
           >
             <Text style={styles.primaryButtonText}>Почати безкоштовно</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.googleButton,
+              googleLoading && styles.googleButtonDisabled,
+            ]}
+            onPress={handleGoogleSignIn}
+            disabled={googleLoading}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color="#1a1a2e" />
+            ) : (
+              <>
+                <Text style={styles.googleIcon}>G</Text>
+                <Text style={styles.googleButtonText}>Увійти через Google</Text>
+              </>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -157,6 +194,28 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  googleButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleButtonDisabled: {
+    opacity: 0.6,
+  },
+  googleIcon: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#e94560',
+    marginRight: 12,
+  },
+  googleButtonText: {
+    color: '#1a1a2e',
     fontSize: 16,
     fontWeight: '600',
   },

@@ -28,7 +28,8 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { signIn, signInWithGoogle } = useAuth();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -44,6 +45,20 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
       Alert.alert('Помилка входу', error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      // Navigation will happen automatically via AuthContext
+    } catch (error: any) {
+      if (error.message !== 'Вхід через Google скасовано') {
+        Alert.alert('Помилка входу', error.message);
+      }
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -109,6 +124,32 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.loginButtonText}>Увійти</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>АБО</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Google Sign In Button */}
+          <TouchableOpacity
+            style={[
+              styles.googleButton,
+              googleLoading && styles.googleButtonDisabled,
+            ]}
+            onPress={handleGoogleSignIn}
+            disabled={googleLoading}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color="#1a1a2e" />
+            ) : (
+              <>
+                <Text style={styles.googleIcon}>G</Text>
+                <Text style={styles.googleButtonText}>Увійти через Google</Text>
+              </>
             )}
           </TouchableOpacity>
         </View>
@@ -196,6 +237,43 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  dividerText: {
+    color: '#666',
+    fontSize: 12,
+    marginHorizontal: 16,
+  },
+  googleButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleButtonDisabled: {
+    opacity: 0.6,
+  },
+  googleIcon: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#e94560',
+    marginRight: 12,
+  },
+  googleButtonText: {
+    color: '#1a1a2e',
     fontSize: 16,
     fontWeight: '600',
   },
