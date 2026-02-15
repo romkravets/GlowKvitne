@@ -31,6 +31,7 @@ const MyAnalysesScreen: React.FC<NavigationProps> = ({ navigation }) => {
   const loadAnalyses = async () => {
     try {
       const response = await getUserAnalyses();
+      console.log('Loaded analyses:', response);
       setAnalyses(response.analyses);
     } catch (error: any) {
       console.error('Load analyses error:', error);
@@ -70,6 +71,7 @@ const MyAnalysesScreen: React.FC<NavigationProps> = ({ navigation }) => {
   };
 
   const renderAnalysis = ({ item }: { item: Analysis }) => {
+    console.log(item);
     const colorType = item.larsonAnalysis?.seasonalType?.primary || 'Unknown';
     const kibbeType = item.kibbeAnalysis?.kibbeType?.result;
     const date = new Date(item.createdAt).toLocaleDateString('uk-UA', {

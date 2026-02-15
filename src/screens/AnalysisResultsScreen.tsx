@@ -33,6 +33,7 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
   route,
 }) => {
   const { analysisResult } = route.params;
+  console.log('Analysis result:', analysisResult);
 
   // Extract data from analysisResult
   const colorType =
@@ -41,9 +42,10 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
     parseFloat(analysisResult.larsonAnalysis?.seasonalType?.confidence || '0') /
     100;
 
-  const undertone = analysisResult.larsonAnalysis?.undertone || 'neutral';
+  const undertone =
+    analysisResult.larsonAnalysis?.undertone?.result || 'neutral';
   const undertoneConfidence =
-    analysisResult.larsonAnalysis?.undertoneConfidence || 'N/A';
+    analysisResult.larsonAnalysis?.undertone?.confidence || 'N/A';
 
   const kibbeType =
     analysisResult.kibbeAnalysis?.kibbeType?.result || 'Unknown';
@@ -96,16 +98,26 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       {/* Header Buttons */}
-      <View style={styles.headerButtons}>
-        <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
-          <Text style={styles.iconButtonText}>📤 Share</Text>
-        </TouchableOpacity>
+      <View style={styles.headerButtonsRow}>
         <TouchableOpacity
-          style={styles.iconButton}
-          onPress={handleViewMyAnalyses}
+          style={styles.backIconButton}
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="Назад"
         >
-          <Text style={styles.iconButtonText}>📊 Мої аналізи</Text>
+          <Text style={styles.backIconText}>◀ Назад</Text>
         </TouchableOpacity>
+
+        <View style={styles.headerButtons}>
+          <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
+            <Text style={styles.iconButtonText}>📤 Share</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={handleViewMyAnalyses}
+          >
+            <Text style={styles.iconButtonText}>📊 Мої аналізи</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -134,7 +146,7 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
               <CharacteristicItem
                 text={`Undertone: ${undertone} (${undertoneConfidence})`}
               />
-              {analysisResult.larsonAnalysis?.undertoneIndicators
+              {analysisResult.larsonAnalysis?.undertone?.indicators
                 ?.slice(0, 3)
                 .map((indicator, idx) => (
                   <CharacteristicItem key={idx} text={indicator} />
@@ -148,12 +160,14 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
           <Text style={styles.sectionTitle}>🎨 ВАША ПАЛІТРА</Text>
           <View style={styles.paletteCard}>
             <Text style={styles.paletteSubtitle}>Базові кольори</Text>
-            <View style={styles.colorRow}>
-              {neutralColors.slice(0, 5).map((color, index) => (
-                <View
-                  key={index}
-                  style={[styles.colorCircle, { backgroundColor: color }]}
-                />
+            <View style={styles.colorRowFull}>
+              {neutralColors.map((color, index) => (
+                <View key={index} style={styles.colorSwatchItem}>
+                  <View
+                    style={[styles.colorCircle, { backgroundColor: color }]}
+                  />
+                  <Text style={styles.colorHexText}>{color}</Text>
+                </View>
               ))}
             </View>
 
@@ -162,12 +176,14 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
                 <Text style={styles.paletteSubtitleWithMargin}>
                   Акцентні кольори
                 </Text>
-                <View style={styles.colorRow}>
-                  {accentColors.slice(0, 5).map((color, index) => (
-                    <View
-                      key={index}
-                      style={[styles.colorCircle, { backgroundColor: color }]}
-                    />
+                <View style={styles.colorRowFull}>
+                  {accentColors.map((color, index) => (
+                    <View key={index} style={styles.colorSwatchItem}>
+                      <View
+                        style={[styles.colorCircle, { backgroundColor: color }]}
+                      />
+                      <Text style={styles.colorHexText}>{color}</Text>
+                    </View>
                   ))}
                 </View>
               </>
@@ -526,6 +542,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
   },
+  colorRowFull: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  colorSwatchItem: {
+    width: 72,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  colorHexText: {
+    marginTop: 6,
+    fontSize: 11,
+    color: '#666666',
+  },
   colorCircle: {
     width: 50,
     height: 50,
@@ -727,6 +759,23 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: '#666666',
+  },
+  headerButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 38,
+    paddingTop: 50,
+    backgroundColor: '#FFFFFF',
+  },
+  backIconButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  backIconText: {
+    fontSize: 14,
+    color: '#1A1A1A',
+    fontWeight: '600',
   },
   primaryButton: {
     backgroundColor: '#C49B63',

@@ -66,6 +66,7 @@ export const SUBSCRIPTION_PLANS = {
       detailedAnalysis: false,
       celebrityTwins: false,
       pdfExport: false,
+      prioritySupport: false,
     },
   },
 
@@ -79,6 +80,7 @@ export const SUBSCRIPTION_PLANS = {
       detailedAnalysis: true,
       celebrityTwins: true,
       pdfExport: false,
+      prioritySupport: false,
     },
   },
 

@@ -8,8 +8,13 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { SUBSCRIPTION_PLANS, ONE_TIME_PURCHASES } from '../config/firebase';
+import {
+  API_CONFIG,
+  SUBSCRIPTION_PLANS,
+  ONE_TIME_PURCHASES,
+} from '../config/firebase';
 
 const SubscriptionScreen = () => {
   const { user, refreshUser } = useAuth();
@@ -23,13 +28,52 @@ const SubscriptionScreen = () => {
   const handleSubscribe = async (planId: string) => {
     setLoading(true);
     try {
-      // TODO: Implement payment integration (Stripe, LiqPay, etc.)
+      // Test flow: upgrade subscription instantly (backend dev endpoint)
+      const chosenPlan =
+        SUBSCRIPTION_PLANS[planId as keyof typeof SUBSCRIPTION_PLANS];
+
+      const confirmed = await new Promise<boolean>(resolve => {
+        Alert.alert(
+          'Тестове замовлення плану',
+          `Підтвердити тестове підключення плану "${
+            chosenPlan?.name ?? planId
+          }"?`,
+          [
+            {
+              text: 'Скасувати',
+              style: 'cancel',
+              onPress: () => resolve(false),
+            },
+            {
+              text: 'Підтвердити',
+              style: 'default',
+              onPress: () => resolve(true),
+            },
+          ],
+        );
+      });
+
+      if (!confirmed) {
+        return;
+      }
+
+      await axios.post(`${API_CONFIG.baseURL}/api/subscription/upgrade`, {
+        planId,
+      });
+
+      await refreshUser();
+
       Alert.alert(
-        'Підписка',
-        `Оплата ${planId} плану буде реалізована в наступному оновленні`,
+        'Готово',
+        `План змінено на "${chosenPlan?.name ?? planId}" (тестовий режим)`,
       );
     } catch (error: any) {
-      Alert.alert('Помилка', error.message);
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Невідома помилка';
+      Alert.alert('Помилка', message);
     } finally {
       setLoading(false);
     }

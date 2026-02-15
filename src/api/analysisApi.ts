@@ -42,9 +42,12 @@ export interface Analysis {
     };
   } | null; // Photos can be null if not saved to storage
   larsonAnalysis?: {
-    undertone?: 'warm' | 'cool' | 'neutral';
-    undertoneConfidence?: string;
-    undertoneIndicators?: string[];
+    undertone?: {
+      result?: 'warm' | 'cool' | 'neutral';
+      confidence?: string;
+      indicators?: string[];
+      scientificReasoning?: string;
+    };
     seasonalType?: {
       primary: string;
       confidence: string;
@@ -55,6 +58,7 @@ export interface Analysis {
         accents: string[];
         metals: string;
       };
+      reasoning?: string;
     };
   };
   kibbeAnalysis?: {
