@@ -3,7 +3,7 @@
  * Відображення результатів аналізу
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -16,14 +16,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationProps } from '../navigation/types';
-import { AnalysisResult } from '../types/analysis';
+import { Analysis } from '../api/analysisApi';
 
 const { width } = Dimensions.get('window');
 
 interface AnalysisResultsScreenProps extends NavigationProps {
   route: {
     params: {
-      analysisResult: AnalysisResult;
+      analysisResult: Analysis;
     };
   };
 }
@@ -33,7 +33,6 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
   route,
 }) => {
   const { analysisResult } = route.params;
-  const [saved, setSaved] = useState(false);
 
   // Extract data from analysisResult
   const colorType =
@@ -41,6 +40,40 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
   const confidence =
     parseFloat(analysisResult.larsonAnalysis?.seasonalType?.confidence || '0') /
     100;
+
+  const undertone = analysisResult.larsonAnalysis?.undertone || 'neutral';
+  const undertoneConfidence =
+    analysisResult.larsonAnalysis?.undertoneConfidence || 'N/A';
+
+  const kibbeType =
+    analysisResult.kibbeAnalysis?.kibbeType?.result || 'Unknown';
+  const kibbeConfidence =
+    analysisResult.kibbeAnalysis?.kibbeType?.confidence || 'N/A';
+  const kibbeRecommendations =
+    analysisResult.kibbeAnalysis?.styleRecommendations;
+
+  const archetypeBlend =
+    analysisResult.archetypeAnalysis?.blendName || 'Unknown';
+  const archetypeKeywords =
+    analysisResult.archetypeAnalysis?.styleKeywords || [];
+  const primaryEssence = analysisResult.archetypeAnalysis?.primaryEssence;
+
+  // Палітра кольорів
+  const neutralColors =
+    analysisResult.larsonAnalysis?.colorPalette?.bestColors?.neutrals || [];
+  const accentColors =
+    analysisResult.larsonAnalysis?.colorPalette?.bestColors?.accents || [];
+  const metals =
+    analysisResult.larsonAnalysis?.colorPalette?.bestColors?.metals ||
+    'Unknown';
+
+  // Рекомендації
+  const makeupRecs = analysisResult.recommendations?.makeup;
+  const hairRecs = analysisResult.recommendations?.hair;
+  const celebrityTwins =
+    analysisResult.recommendations?.celebrityTwins ||
+    analysisResult.celebrityMatches ||
+    [];
 
   const handleShare = async () => {
     try {
@@ -52,10 +85,8 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
     }
   };
 
-  const handleSave = async () => {
-    // TODO: Save to user's profile
-    setSaved(true);
-    Alert.alert('Збережено', 'Аналіз збережено у ваш профіль');
+  const handleViewMyAnalyses = () => {
+    navigation.navigate('MyAnalysis');
   };
 
   const handleDownloadPDF = () => {
@@ -69,10 +100,11 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
         <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
           <Text style={styles.iconButtonText}>📤 Share</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton} onPress={handleSave}>
-          <Text style={styles.iconButtonText}>
-            {saved ? '✅ Saved' : '💾 Save'}
-          </Text>
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={handleViewMyAnalyses}
+        >
+          <Text style={styles.iconButtonText}>📊 Мої аналізи</Text>
         </TouchableOpacity>
       </View>
 
@@ -99,9 +131,14 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
 
             <View style={styles.characteristics}>
               <Text style={styles.characteristicsTitle}>Характеристики:</Text>
-              <CharacteristicItem text="Теплий undertone" />
-              <CharacteristicItem text="Середня глибина" />
-              <CharacteristicItem text="Приглушена насиченість" />
+              <CharacteristicItem
+                text={`Undertone: ${undertone} (${undertoneConfidence})`}
+              />
+              {analysisResult.larsonAnalysis?.undertoneIndicators
+                ?.slice(0, 3)
+                .map((indicator, idx) => (
+                  <CharacteristicItem key={idx} text={indicator} />
+                ))}
             </View>
           </View>
         </View>
@@ -112,21 +149,7 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
           <View style={styles.paletteCard}>
             <Text style={styles.paletteSubtitle}>Базові кольори</Text>
             <View style={styles.colorRow}>
-              {['#8B4513', '#D2691E', '#CD853F', '#DEB887'].map(
-                (color, index) => (
-                  <View
-                    key={index}
-                    style={[styles.colorCircle, { backgroundColor: color }]}
-                  />
-                ),
-              )}
-            </View>
-
-            <Text style={styles.paletteSubtitleWithMargin}>
-              Акцентні кольори
-            </Text>
-            <View style={styles.colorRow}>
-              {['#B8860B', '#DAA520', '#FF8C00'].map((color, index) => (
+              {neutralColors.slice(0, 5).map((color, index) => (
                 <View
                   key={index}
                   style={[styles.colorCircle, { backgroundColor: color }]}
@@ -134,9 +157,25 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
               ))}
             </View>
 
+            {accentColors.length > 0 && (
+              <>
+                <Text style={styles.paletteSubtitleWithMargin}>
+                  Акцентні кольори
+                </Text>
+                <View style={styles.colorRow}>
+                  {accentColors.slice(0, 5).map((color, index) => (
+                    <View
+                      key={index}
+                      style={[styles.colorCircle, { backgroundColor: color }]}
+                    />
+                  ))}
+                </View>
+              </>
+            )}
+
             <View style={styles.metalContainer}>
               <Text style={styles.metalLabel}>Метал:</Text>
-              <Text style={styles.metalValue}>🥇 Золото</Text>
+              <Text style={styles.metalValue}>{metals}</Text>
             </View>
 
             <TouchableOpacity
@@ -150,125 +189,164 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
           </View>
         </View>
 
-        {/* Avoid Colors */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>❌ УНИКАЙТЕ</Text>
-          <View style={styles.avoidCard}>
-            <View style={styles.colorRow}>
-              {['#E0FFFF', '#B0E0E6', '#87CEEB'].map((color, index) => (
-                <View
-                  key={index}
-                  style={[styles.colorCircle, { backgroundColor: color }]}
-                />
-              ))}
+        {/* Avoid Colors - hide if no data */}
+        {analysisResult.larsonAnalysis?.colorPalette && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>❌ УНИКАЙТЕ</Text>
+            <View style={styles.avoidCard}>
+              <Text style={styles.avoidText}>
+                {analysisResult.larsonAnalysis.colorPalette.reasoning ||
+                  'Уникайте кольорів, що не гармонують з вашим колоротипом'}
+              </Text>
             </View>
-            <Text style={styles.avoidText}>Холодні тони</Text>
           </View>
-        </View>
+        )}
 
         {/* Kibbe Body Type */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>👗 ТИП ФІГУРИ (KIBBE)</Text>
-          <View style={styles.resultCard}>
-            <Text style={styles.kibbeType}>Soft Natural</Text>
-            <Text style={styles.confidenceSmall}>Впевненість: 85%</Text>
-
-            <View style={styles.kibbeDetails}>
-              <Text style={styles.kibbeSubtitle}>Ваші лінії:</Text>
-              <CharacteristicItem text="Природні, relaxed" />
-              <CharacteristicItem text="М'які, flowing" />
-              <CharacteristicItem text="Середня довжина" />
-
-              <Text style={styles.kibbeSubtitleWithMargin}>
-                Рекомендовані силуети:
+        {kibbeType !== 'Unknown' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>👗 ТИП ФІГУРИ (KIBBE)</Text>
+            <View style={styles.resultCard}>
+              <Text style={styles.kibbeType}>{kibbeType}</Text>
+              <Text style={styles.confidenceSmall}>
+                Впевненість: {kibbeConfidence}
               </Text>
-              <CharacteristicItem text="Unconstructed jacket" />
-              <CharacteristicItem text="Soft fabrics" />
-              <CharacteristicItem text="Gentle waist" />
+
+              {kibbeRecommendations && (
+                <View style={styles.kibbeDetails}>
+                  {kibbeRecommendations.silhouettes &&
+                    kibbeRecommendations.silhouettes.length > 0 && (
+                      <>
+                        <Text style={styles.kibbeSubtitle}>
+                          Рекомендовані силуети:
+                        </Text>
+                        {kibbeRecommendations.silhouettes
+                          .slice(0, 5)
+                          .map((item, idx) => (
+                            <CharacteristicItem key={idx} text={item} />
+                          ))}
+                      </>
+                    )}
+
+                  {kibbeRecommendations.fabrics && (
+                    <>
+                      <Text style={styles.kibbeSubtitleWithMargin}>
+                        Тканини:
+                      </Text>
+                      <CharacteristicItem text={kibbeRecommendations.fabrics} />
+                    </>
+                  )}
+                </View>
+              )}
             </View>
           </View>
-        </View>
+        )}
 
         {/* Essence */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>✨ ВАША ЕСЕНЦІЯ</Text>
-          <View style={styles.resultCard}>
-            <Text style={styles.essenceType}>Natural-Romantic</Text>
+        {archetypeBlend !== 'Unknown' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>✨ ВАША ЕСЕНЦІЯ</Text>
+            <View style={styles.resultCard}>
+              <Text style={styles.essenceType}>{archetypeBlend}</Text>
 
-            <View style={styles.essenceBar}>
-              <Text style={styles.essenceLabel}>65% Natural</Text>
-              <View style={styles.progressBar}>
-                <View style={styles.progressFill65} />
-              </View>
+              {primaryEssence && (
+                <View style={styles.essenceBar}>
+                  <Text style={styles.essenceLabel}>
+                    {primaryEssence.percentage}% {primaryEssence.name}
+                  </Text>
+                  <View style={styles.progressBar}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { width: `${primaryEssence.percentage}%` },
+                      ]}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {archetypeKeywords.length > 0 && (
+                <Text style={styles.essenceVibe}>
+                  Ваш вайб:{' '}
+                  <Text style={styles.essenceVibeText}>
+                    {archetypeKeywords.slice(0, 5).join(', ')}
+                  </Text>
+                </Text>
+              )}
             </View>
-
-            <View style={styles.essenceBar}>
-              <Text style={styles.essenceLabel}>35% Romantic</Text>
-              <View style={styles.progressBar}>
-                <View style={styles.progressFill35} />
-              </View>
-            </View>
-
-            <Text style={styles.essenceVibe}>
-              Ваш вайб:{' '}
-              <Text style={styles.essenceVibeText}>
-                earthy, approachable, feminine
-              </Text>
-            </Text>
           </View>
-        </View>
+        )}
 
         {/* Celebrity Twins */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🌟 ВАШІ CELEBRITY TWINS</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.celebritiesRow}
-          >
-            {[
-              { name: 'Jennifer Lawrence', match: 87 },
-              { name: 'Jessica Alba', match: 82 },
-              { name: 'Blake Lively', match: 79 },
-            ].map((celeb, index) => (
-              <View key={index} style={styles.celebrityCard}>
-                <View style={styles.celebrityImage}>
-                  <Text style={styles.celebrityPlaceholder}>👤</Text>
+        {celebrityTwins.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>🌟 ВАШІ CELEBRITY TWINS</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.celebritiesRow}
+            >
+              {celebrityTwins.map((celeb, index) => (
+                <View key={index} style={styles.celebrityCard}>
+                  <View style={styles.celebrityImage}>
+                    <Text style={styles.celebrityPlaceholder}>👤</Text>
+                  </View>
+                  <Text style={styles.celebrityName}>{celeb.name}</Text>
+                  <Text style={styles.celebrityMatch}>{celeb.similarity}%</Text>
                 </View>
-                <Text style={styles.celebrityName}>{celeb.name}</Text>
-                <Text style={styles.celebrityMatch}>{celeb.match}%</Text>
-              </View>
-            ))}
-          </ScrollView>
-          <TouchableOpacity
-            style={styles.detailsButton}
-            onPress={() =>
-              navigation.navigate('CelebrityDetails', { celebrities: [] })
-            }
-          >
-            <Text style={styles.detailsButtonText}>Детальніше →</Text>
-          </TouchableOpacity>
-        </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.detailsButton}
+              onPress={() =>
+                navigation.navigate('CelebrityDetails', {
+                  celebrities: celebrityTwins,
+                } as any)
+              }
+            >
+              <Text style={styles.detailsButtonText}>Детальніше →</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Makeup & Hair */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>💄 МАКІЯЖ</Text>
-          <View style={styles.tipsCard}>
-            <TipItem label="Губи" value="Терракотові відтінки" />
-            <TipItem label="Очі" value="Золотисто-коричневі" />
-            <TipItem label="Рум'яна" value="Персикові" />
+        {makeupRecs && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>💄 МАКІЯЖ</Text>
+            <View style={styles.tipsCard}>
+              {makeupRecs.lipColors && makeupRecs.lipColors.length > 0 && (
+                <TipItem
+                  label="Губи"
+                  value={makeupRecs.lipColors.slice(0, 2).join(', ')}
+                />
+              )}
+              {makeupRecs.eyeColors && makeupRecs.eyeColors.length > 0 && (
+                <TipItem
+                  label="Очі"
+                  value={makeupRecs.eyeColors.slice(0, 2).join(', ')}
+                />
+              )}
+              {makeupRecs.blushColors && makeupRecs.blushColors.length > 0 && (
+                <TipItem
+                  label="Рум'яна"
+                  value={makeupRecs.blushColors.slice(0, 2).join(', ')}
+                />
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>💇 ВОЛОССЯ</Text>
-          <View style={styles.tipsCard}>
-            <Text style={styles.tipsTitle}>Кращі відтінки:</Text>
-            <CharacteristicItem text="Теплий каштановий" />
-            <CharacteristicItem text="Золотисто-русявий" />
-            <CharacteristicItem text="Мідний" />
+        {hairRecs && hairRecs.colors && hairRecs.colors.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>💇 ВОЛОССЯ</Text>
+            <View style={styles.tipsCard}>
+              <Text style={styles.tipsTitle}>Кращі відтінки:</Text>
+              {hairRecs.colors.slice(0, 5).map((color, idx) => (
+                <CharacteristicItem key={idx} text={color} />
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* CTA Buttons */}
         <TouchableOpacity

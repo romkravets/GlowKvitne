@@ -73,6 +73,10 @@ export type ProfileStackParamList = {
   About: undefined;
   Privacy: undefined;
   Terms: undefined;
+  // Навігація до аналізів з MyAnalysesScreen
+  AnalysisResults: { analysisResult: AnalysisResult };
+  AnalysisLoading: { analysisId: string };
+  StartAnalysis: undefined;
 };
 
 // Типи для navigation prop

@@ -1,6 +1,6 @@
 /**
  * Analysis Loading Screen
- * Екран під час обробки аналізу
+ * Екран під час обробки аналізу з реальним polling
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -10,9 +10,11 @@ import {
   StyleSheet,
   Animated,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationProps } from '../navigation/types';
+import { pollAnalysisStatus } from '../api/analysisApi';
 
 const LOADING_STEPS = [
   { id: 1, text: 'Аналізуємо підтон шкіри...', duration: 3000 },
@@ -45,8 +47,8 @@ const AnalysisLoadingScreen: React.FC<AnalysisLoadingScreenProps> = ({
   const [currentFact, setCurrentFact] = useState(0);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
+  // Animation effect - runs once
   useEffect(() => {
-    // Animate illustration
     Animated.loop(
       Animated.sequence([
         Animated.parallel([
@@ -65,48 +67,90 @@ const AnalysisLoadingScreen: React.FC<AnalysisLoadingScreenProps> = ({
         ]),
       ]),
     ).start();
+  }, [scaleAnim]);
 
-    // Simulate analysis steps
+  // Progress steps effect - runs once
+  useEffect(() => {
     let stepTimeout: ReturnType<typeof setTimeout>;
-    const progressSteps = () => {
-      stepTimeout = setTimeout(() => {
-        setCurrentStep(prev => {
-          if (prev < LOADING_STEPS.length - 1) {
-            return prev + 1;
-          }
-          return prev;
-        });
-        if (currentStep < LOADING_STEPS.length - 1) {
-          progressSteps();
-        }
-      }, LOADING_STEPS[currentStep]?.duration || 3000);
-    };
-    progressSteps();
 
-    // Change fun facts every 10 seconds
+    const progressSteps = (step: number) => {
+      if (step >= LOADING_STEPS.length) return;
+
+      stepTimeout = setTimeout(() => {
+        setCurrentStep(step);
+        progressSteps(step + 1);
+      }, LOADING_STEPS[step - 1]?.duration || 3000);
+    };
+
+    progressSteps(1);
+
+    return () => {
+      clearTimeout(stepTimeout);
+    };
+  }, []);
+
+  // Fun facts rotation - runs once
+  useEffect(() => {
     const factInterval = setInterval(() => {
       setCurrentFact(prev => (prev + 1) % FUN_FACTS.length);
     }, 10000);
 
-    // Simulate API polling (in real app, you'd poll the backend)
-    const pollTimeout = setTimeout(() => {
-      // Navigate to results
-      navigation.replace('AnalysisResults', {
-        analysisResult: {
-          // Mock data - in real app would come from API
-          id: analysisId,
-          colorType: 'Warm Autumn',
-          confidence: 0.93,
-        } as any,
-      });
-    }, 15000); // 15 seconds total
-
     return () => {
-      clearTimeout(stepTimeout);
-      clearTimeout(pollTimeout);
       clearInterval(factInterval);
     };
-  }, [currentStep, analysisId, navigation, scaleAnim]);
+  }, []);
+
+  // Real API polling - runs ONCE on mount
+  useEffect(() => {
+    let isCancelled = false;
+
+    const startPolling = async () => {
+      try {
+        console.log('🔄 Starting polling for analysis:', analysisId);
+        const analysis = await pollAnalysisStatus(
+          analysisId,
+          status => {
+            console.log('📊 Analysis status update:', status);
+            // Можна оновлювати UI в залежності від статусу
+            if (status === 'processing' && currentStep < 2) {
+              setCurrentStep(2);
+            }
+          },
+          60, // 60 спроб = 5 хвилин
+          5000, // перевірка кожні 5 секунд
+        );
+
+        if (!isCancelled) {
+          console.log('✅ Analysis completed, navigating to results');
+          // Аналіз завершено - переходимо до результатів
+          navigation.replace('AnalysisResults', {
+            analysisResult: analysis,
+          });
+        }
+      } catch (error: any) {
+        if (!isCancelled) {
+          console.error('❌ Polling error:', error);
+          Alert.alert(
+            'Помилка',
+            error.message || 'Не вдалося завершити аналіз',
+            [
+              {
+                text: 'Повернутись',
+                onPress: () => navigation.goBack(),
+              },
+            ],
+          );
+        }
+      }
+    };
+
+    startPolling();
+
+    return () => {
+      console.log('🛑 Stopping polling (component unmounted)');
+      isCancelled = true;
+    };
+  }, [analysisId, navigation]);
 
   return (
     <SafeAreaView style={styles.container}>

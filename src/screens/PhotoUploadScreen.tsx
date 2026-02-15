@@ -11,13 +11,12 @@ import {
 } from 'react-native';
 import { launchImageLibrary, Asset } from 'react-native-image-picker';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { analyzePhotos } from '../api/client';
-import { AnalysisResult } from '../types/analysis';
+import { createAnalysis } from '../api/analysisApi';
 
 type RootStackParamList = {
   Home: undefined;
   PhotoUpload: undefined;
-  Results: { analysisResult: AnalysisResult };
+  AnalysisLoading: { analysisId: string };
 };
 
 type PhotoUploadScreenProps = {
@@ -56,19 +55,23 @@ export default function PhotoUploadScreen({
     setIsAnalyzing(true);
 
     try {
-      const response = await analyzePhotos(facePhoto.base64, bodyPhoto?.base64);
+      // Створюємо аналіз на backend (зберігається в MongoDB)
+      const response = await createAnalysis({
+        facePhotoBase64: facePhoto.base64,
+        bodyPhotoBase64: bodyPhoto?.base64,
+      });
 
-      if (response.success && response.result) {
-        navigation.navigate('Results', { analysisResult: response.result });
-      } else {
-        Alert.alert('Помилка', 'Не вдалося отримати результат аналізу');
-      }
-    } catch (error) {
+      // Переходимо на екран завантаження з analysisId
+      navigation.navigate('AnalysisLoading', {
+        analysisId: response.analysisId,
+      });
+    } catch (error: any) {
       Alert.alert(
         'Помилка',
-        error instanceof Error ? error.message : 'Щось пішло не так',
+        error.response?.data?.message ||
+          error.message ||
+          'Не вдалося створити аналіз. Перевір підключення до інтернету.',
       );
-    } finally {
       setIsAnalyzing(false);
     }
   };

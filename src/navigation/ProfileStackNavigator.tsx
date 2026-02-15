@@ -10,9 +10,12 @@ import { ProfileStackParamList } from './types';
 // Screens
 import ProfileScreen from '../screens/ProfileScreen';
 import SubscriptionScreen from '../screens/SubscriptionScreen';
+import MyAnalysesScreen from '../screens/MyAnalysesScreen';
+import StartAnalysisScreen from '../screens/StartAnalysisScreen';
+import AnalysisLoadingScreen from '../screens/AnalysisLoadingScreen';
+import AnalysisResultsScreen from '../screens/AnalysisResultsScreen';
 import {
   EditProfileScreen,
-  MyAnalysisScreen,
   SettingsScreen,
   AboutScreen,
   PrivacyScreen,
@@ -53,7 +56,7 @@ const ProfileStackNavigator: React.FC = () => {
       />
       <Stack.Screen
         name="MyAnalysis"
-        component={MyAnalysisScreen}
+        component={MyAnalysesScreen}
         options={{
           title: 'Мої аналізи',
         }}
@@ -91,6 +94,29 @@ const ProfileStackNavigator: React.FC = () => {
         component={TermsScreen}
         options={{
           title: 'Умови використання',
+        }}
+      />
+      <Stack.Screen
+        name="StartAnalysis"
+        component={StartAnalysisScreen}
+        options={{
+          title: 'Новий аналіз',
+        }}
+      />
+      <Stack.Screen
+        name="AnalysisLoading"
+        component={AnalysisLoadingScreen}
+        options={{
+          title: 'Аналіз',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="AnalysisResults"
+        component={AnalysisResultsScreen}
+        options={{
+          title: 'Результати',
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

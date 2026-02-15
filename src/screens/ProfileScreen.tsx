@@ -83,18 +83,18 @@ const ProfileScreen: React.FC<NavigationProps> = ({ navigation }) => {
 
   const handleLinkGoogle = async () => {
     Alert.alert(
-      'Прив\'язати Google',
-      'Після прив\'язування ви зможете входити через Google замість пароля',
+      "Прив'язати Google",
+      "Після прив'язування ви зможете входити через Google замість пароля",
       [
         { text: 'Скасувати', style: 'cancel' },
         {
-          text: 'Прив\'язати',
+          text: "Прив'язати",
           onPress: async () => {
             try {
               await linkGoogleAccount();
               Alert.alert(
                 'Успіх! 🎉',
-                'Google акаунт успішно прив\'язано. Тепер ви можете входити через Google!'
+                "Google акаунт успішно прив'язано. Тепер ви можете входити через Google!",
               );
               checkAuthProviders(); // Refresh provider status
             } catch (error: any) {
@@ -102,7 +102,7 @@ const ProfileScreen: React.FC<NavigationProps> = ({ navigation }) => {
             }
           },
         },
-      ]
+      ],
     );
   };
 
