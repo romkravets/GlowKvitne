@@ -14,6 +14,8 @@ import {
   onAuthStateChanged,
   updateProfile,
   GoogleAuthProvider,
+  fetchSignInMethodsForEmail,
+  linkWithCredential,
 } from '@react-native-firebase/auth';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -56,6 +58,7 @@ interface AuthContextType {
     displayName: string,
   ) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  linkGoogleAccount: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -191,6 +194,28 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // User state will be updated by onAuthStateChanged
     } catch (error: any) {
       console.error('Sign in error:', error);
+      
+      // Check if the error is due to account existing with different credential
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+        // Check if user exists with Google provider
+        try {
+          const auth = getAuth();
+          const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+          
+          if (signInMethods.includes('google.com')) {
+            throw new Error(
+              'Цей email використовується для входу через Google. ' +
+              'Будь ласка, використайте кнопку "Увійти через Google"'
+            );
+          }
+        } catch (methodError: any) {
+          // If it's our custom error, rethrow it
+          if (methodError.message.includes('Google')) {
+            throw methodError;
+          }
+        }
+      }
+      
       throw new Error(error.message || 'Помилка входу');
     }
   };
@@ -231,6 +256,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // User state will be updated by onAuthStateChanged
     } catch (error: any) {
       console.error('Sign up error:', error);
+      
+      // Check if email is already in use with Google
+      if (error.code === 'auth/email-already-in-use') {
+        try {
+          const auth = getAuth();
+          const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+          
+          if (signInMethods.includes('google.com')) {
+            throw new Error(
+              'Цей email вже використовується для входу через Google. ' +
+              'Будь ласка, використайте кнопку "Увійти через Google"'
+            );
+          }
+        } catch (methodError: any) {
+          // If it's our custom error, rethrow it
+          if (methodError.message.includes('Google')) {
+            throw methodError;
+          }
+        }
+      }
+      
       throw new Error(error.message || 'Помилка реєстрації');
     }
   };
@@ -259,6 +305,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Backend sync happens automatically in fetchUserData via /api/auth/me
     } catch (error: any) {
       console.error('Google sign in error:', error);
+      
+      // Handle account exists with different credential
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        const email = error.email;
+        const auth = getAuth();
+        
+        try {
+          const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+          
+          if (signInMethods.includes('password')) {
+            throw new Error(
+              'Цей email вже зареєстрований з паролем. ' +
+              'Будь ласка, увійдіть через email і пароль, щоб продовжити.'
+            );
+          } else {
+            throw new Error(
+              'Цей email вже використовується іншим методом входу. ' +
+              'Спробуйте інший метод входу.'
+            );
+          }
+        } catch (methodError: any) {
+          // If it's our custom error, rethrow it
+          if (methodError.message.includes('email')) {
+            throw methodError;
+          }
+        }
+      }
+      
       if (error.code === 'GOOGLE_SIGNIN_CANCELLED') {
         throw new Error('Вхід через Google скасовано');
       } else if (error.code === 'IN_PROGRESS') {
@@ -267,6 +341,49 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         throw new Error('Google Play Services недоступний');
       }
       throw new Error(error.message || 'Помилка входу через Google');
+    }
+  };
+
+  // Link Google account to existing account (for users who want both login methods)
+  const linkGoogleAccount = async () => {
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser) {
+        throw new Error('Користувач не авторизований');
+      }
+
+      // Check if device supports Google Play
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
+
+      // Get user info from Google
+      const userInfo = await GoogleSignin.signIn();
+
+      // Create Firebase credential
+      const googleCredential = GoogleAuthProvider.credential(
+        userInfo.data?.idToken ?? null,
+      );
+
+      // Link the credential to the current user
+      await linkWithCredential(currentUser, googleCredential);
+
+      // Refresh user data
+      await fetchUserData(currentUser);
+    } catch (error: any) {
+      console.error('Link Google account error:', error);
+      
+      if (error.code === 'auth/credential-already-in-use') {
+        throw new Error('Цей Google акаунт вже використовується іншим користувачем');
+      } else if (error.code === 'auth/provider-already-linked') {
+        throw new Error('Google вже прив\'язано до цього акаунту');
+      } else if (error.code === 'GOOGLE_SIGNIN_CANCELLED') {
+        throw new Error('Вхід через Google скасовано');
+      }
+      
+      throw new Error(error.message || 'Помилка прив\'язування Google акаунту');
     }
   };
 
@@ -298,6 +415,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signIn,
     signUp,
     signInWithGoogle,
+    linkGoogleAccount,
     signOut,
     refreshUser,
   };

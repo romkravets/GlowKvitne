@@ -12,8 +12,10 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getAuth } from '@react-native-firebase/auth';
 import { useAuth } from '../context/AuthContext';
 import { NavigationProps } from '../navigation/types';
 
@@ -27,8 +29,10 @@ interface UserProfile {
 }
 
 const ProfileScreen: React.FC<NavigationProps> = ({ navigation }) => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, linkGoogleAccount } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [hasGoogleProvider, setHasGoogleProvider] = useState(false);
+  const [checkingProviders, setCheckingProviders] = useState(true);
 
   const loadProfile = async () => {
     try {
@@ -52,13 +56,54 @@ const ProfileScreen: React.FC<NavigationProps> = ({ navigation }) => {
 
   useEffect(() => {
     loadProfile();
+    checkAuthProviders();
   }, []);
+
+  const checkAuthProviders = async () => {
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const providers = currentUser.providerData.map(p => p.providerId);
+        setHasGoogleProvider(providers.includes('google.com'));
+      }
+    } catch (error) {
+      console.error('Error checking providers:', error);
+    } finally {
+      setCheckingProviders(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert('Вихід', 'Ви впевнені що хочете вийти?', [
       { text: 'Скасувати', style: 'cancel' },
       { text: 'Вийти', style: 'destructive', onPress: signOut },
     ]);
+  };
+
+  const handleLinkGoogle = async () => {
+    Alert.alert(
+      'Прив\'язати Google',
+      'Після прив\'язування ви зможете входити через Google замість пароля',
+      [
+        { text: 'Скасувати', style: 'cancel' },
+        {
+          text: 'Прив\'язати',
+          onPress: async () => {
+            try {
+              await linkGoogleAccount();
+              Alert.alert(
+                'Успіх! 🎉',
+                'Google акаунт успішно прив\'язано. Тепер ви можете входити через Google!'
+              );
+              checkAuthProviders(); // Refresh provider status
+            } catch (error: any) {
+              Alert.alert('Помилка', error.message);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const subscriptionBadge = () => {
@@ -155,6 +200,26 @@ const ProfileScreen: React.FC<NavigationProps> = ({ navigation }) => {
             title="Налаштування"
             onPress={() => navigation.navigate('Settings')}
           />
+
+          {/* Google Account Linking */}
+          {!checkingProviders && !hasGoogleProvider && (
+            <MenuButton
+              icon="🔗"
+              title="Прив'язати Google акаунт"
+              subtitle="Увійдіть через Google одним кліком"
+              highlight
+              onPress={handleLinkGoogle}
+            />
+          )}
+
+          {!checkingProviders && hasGoogleProvider && (
+            <MenuButton
+              icon="✅"
+              title="Google акаунт прив'язано"
+              subtitle="Можете входити через Google"
+              onPress={() => {}}
+            />
+          )}
 
           <MenuButton
             icon="❓"

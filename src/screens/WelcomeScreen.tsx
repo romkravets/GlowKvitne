@@ -23,7 +23,7 @@ type WelcomeScreenProps = {
 };
 
 const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
-  const [googleLoading, setGoogleLoading] = useState(false);
+  /*   const [googleLoading, setGoogleLoading] = useState(false);
   const { signInWithGoogle } = useAuth();
 
   const handleGoogleSignIn = async () => {
@@ -37,7 +37,7 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
     } finally {
       setGoogleLoading(false);
     }
-  };
+  }; */
 
   return (
     <View style={styles.container}>
@@ -79,7 +79,7 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
             <Text style={styles.primaryButtonText}>Почати безкоштовно</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/*   <TouchableOpacity
             style={[
               styles.googleButton,
               googleLoading && styles.googleButtonDisabled,
@@ -95,7 +95,7 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
                 <Text style={styles.googleButtonText}>Увійти через Google</Text>
               </>
             )}
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TouchableOpacity
             style={styles.secondaryButton}
