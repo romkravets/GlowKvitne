@@ -56,5 +56,11 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>GlowKvitne потребує доступ до камери для аналізу твоєї зовнішності</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>GlowKvitne потребує доступ до фото для аналізу твоєї зовнішності</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>GlowKvitne потребує доступ для збереження результатів</string>
 </dict>
 </plist>
