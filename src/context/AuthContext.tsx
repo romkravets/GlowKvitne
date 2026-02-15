@@ -106,20 +106,55 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const token = await firebaseUser.getIdToken();
       await AsyncStorage.setItem('authToken', token);
 
-      // Get user data from backend
-      const response = await axios.get(`${API_CONFIG.baseURL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // Try to get user data from backend
+      try {
+        const response = await axios.get(`${API_CONFIG.baseURL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      const userData = response.data.user;
-      setUser({
-        uid: firebaseUser.uid,
-        email: firebaseUser.email,
-        displayName: firebaseUser.displayName,
-        photoURL: firebaseUser.photoURL,
-        subscription: userData.subscription,
-        purchases: userData.purchases,
-      });
+        const userData = response.data.user;
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+          subscription: userData.subscription,
+          purchases: userData.purchases,
+        });
+      } catch (error: any) {
+        // If user not found in backend (404), create it
+        if (error.response?.status === 404) {
+          await axios.post(
+            `${API_CONFIG.baseURL}/api/auth/register`,
+            {
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName,
+              photoURL: firebaseUser.photoURL,
+            },
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
+          // Retry fetching user data
+          const response = await axios.get(
+            `${API_CONFIG.baseURL}/api/auth/me`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
+          const userData = response.data.user;
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL,
+            subscription: userData.subscription,
+            purchases: userData.purchases,
+          });
+        } else {
+          throw error;
+        }
+      }
     } catch (error) {
       console.error('Failed to fetch user data:', error);
       // Fallback to Firebase user only
@@ -218,28 +253,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       // Sign in with Firebase
       const auth = getAuth();
-      const userCredential = await signInWithCredential(
-        auth,
-        googleCredential,
-      );
-
-      // Get ID token
-      const token = await userCredential.user.getIdToken();
-
-      // Register/login in backend
-      await axios.post(
-        `${API_CONFIG.baseURL}/api/auth/google`,
-        {
-          email: userCredential.user.email,
-          displayName: userCredential.user.displayName,
-          photoURL: userCredential.user.photoURL,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      await signInWithCredential(auth, googleCredential);
 
       // User state will be updated by onAuthStateChanged
+      // Backend sync happens automatically in fetchUserData via /api/auth/me
     } catch (error: any) {
       console.error('Google sign in error:', error);
       if (error.code === 'GOOGLE_SIGNIN_CANCELLED') {
