@@ -109,6 +109,32 @@ const RegisterScreen = ({ navigation }: RegisterScreenProps) => {
             </Text>
           </View>
 
+          {/* Google Sign In Button */}
+          <TouchableOpacity
+            style={[
+              styles.googleButton,
+              googleLoading && styles.googleButtonDisabled,
+            ]}
+            onPress={handleGoogleSignIn}
+            disabled={googleLoading}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color="#1a1a2e" />
+            ) : (
+              <>
+                <Text style={styles.googleIcon}>G</Text>
+                <Text style={styles.googleButtonText}>Увійти через Google</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>АБО</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
           {/* Form */}
           <View style={styles.form}>
             <View style={styles.inputContainer}>
@@ -184,34 +210,6 @@ const RegisterScreen = ({ navigation }: RegisterScreenProps) => {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.registerButtonText}>Зареєструватися</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>АБО</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Google Sign In Button */}
-            <TouchableOpacity
-              style={[
-                styles.googleButton,
-                googleLoading && styles.googleButtonDisabled,
-              ]}
-              onPress={handleGoogleSignIn}
-              disabled={googleLoading}
-            >
-              {googleLoading ? (
-                <ActivityIndicator color="#1a1a2e" />
-              ) : (
-                <>
-                  <Text style={styles.googleIcon}>G</Text>
-                  <Text style={styles.googleButtonText}>
-                    Увійти через Google
-                  </Text>
-                </>
               )}
             </TouchableOpacity>
 

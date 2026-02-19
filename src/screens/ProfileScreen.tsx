@@ -34,6 +34,8 @@ const ProfileScreen: React.FC<NavigationProps> = ({ navigation }) => {
   const [hasGoogleProvider, setHasGoogleProvider] = useState(false);
   const [checkingProviders, setCheckingProviders] = useState(true);
 
+  console.log('User in ProfileScreen:', user);
+
   const loadProfile = async () => {
     try {
       // TODO: Завантажити профіль з API
@@ -41,11 +43,11 @@ const ProfileScreen: React.FC<NavigationProps> = ({ navigation }) => {
 
       // Симуляція
       const mockProfile: UserProfile = {
-        name: 'Олена',
+        name: user?.displayName || 'Користувач',
         email: user?.email || 'user@example.com',
-        subscription: 'free',
-        analysisCount: 1,
-        outfitCount: 3,
+        subscription: user?.subscription.plan || '',
+        analysisCount: user?.subscription?.usage.analysesThisMonth || 0,
+        outfitCount: user?.subscription?.usage.outfitsThisMonth || 0,
       };
 
       setProfile(mockProfile);

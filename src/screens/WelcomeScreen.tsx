@@ -76,7 +76,7 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
             style={styles.primaryButton}
             onPress={() => navigation.navigate('Register')}
           >
-            <Text style={styles.primaryButtonText}>Почати безкоштовно</Text>
+            <Text style={styles.primaryButtonText}>Почати аналіз</Text>
           </TouchableOpacity>
 
           {/*   <TouchableOpacity

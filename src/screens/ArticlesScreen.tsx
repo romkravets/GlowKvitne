@@ -88,6 +88,7 @@ const ArticlesScreen = ({ navigation }: ArticlesScreenProps) => {
       const response = await axios.get(
         `${API_CONFIG.baseURL}/api/public/articles`,
       );
+      console.log(response, 'response fetchArticles');
       setArticles(response.data.articles || []);
     } catch (error) {
       console.error('Error fetching articles:', error);
@@ -102,6 +103,7 @@ const ArticlesScreen = ({ navigation }: ArticlesScreenProps) => {
       const response = await axios.get(
         `${API_CONFIG.baseURL}/api/public/articles/categories`,
       );
+      console.log(response, 'fetchCategories');
       setCategories(response.data.categories || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
