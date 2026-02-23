@@ -35,14 +35,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.logo}>✨</Text>
-        <Text style={styles.title}>GlowKvitne</Text>
-        <Text style={styles.subtitle}>AI Fashion Analysis</Text>
+        <Text style={styles.title}>HaiKvitne</Text>
+        <Text style={styles.subtitle}>Fashion Analysis</Text>
       </View>
 
       <View style={styles.content}>
         <Text style={styles.description}>
-          Отримай персональний аналіз твого колориту та типу фігури за допомогою
-          штучного інтелекту
+          Отримай персональний аналіз твого колориту та типу фігури
         </Text>
 
         <View style={styles.features}>
@@ -66,8 +65,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         {isServerRunning === false && (
           <View style={styles.warning}>
             <Text style={styles.warningText}>
-              ⚠️ Сервер не відповідає. Переконайся що backend запущено на порту
-              3000
+              ⚠️ Сервер не відповідає. Спробуйте знову або перевірте підключення
+              до інтернету.
             </Text>
           </View>
         )}

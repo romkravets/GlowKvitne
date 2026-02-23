@@ -14,23 +14,50 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import axios from 'axios';
 import { API_CONFIG } from '../config/firebase';
 
+interface Service {
+  _id: string;
+  name: string;
+  description: string;
+  price: {
+    from: number;
+    to: number;
+    currency: string;
+  };
+  duration: string;
+  category: string;
+}
+
 interface Salon {
   _id: string;
   name: string;
   slug: string;
   description: string;
-  address: {
-    street: string;
+  location: {
+    address: string;
     city: string;
-    region: string;
+    country: string;
   };
-  phone: string;
-  rating: number;
-  reviewsCount: number;
-  services: string[];
+  contact: {
+    phone: string;
+    email?: string;
+    website?: string;
+    instagram?: string;
+  };
+  rating: {
+    average: number;
+    count: number;
+  };
+  services: Service[];
   photos: string[];
   workingHours: {
-    [key: string]: { open: string; close: string; isOpen: boolean };
+    [key: string]: { open: string; close: string; closed: boolean };
+  };
+  specializations: string[];
+  verified: boolean;
+  stats: {
+    views: number;
+    bookings: number;
+    favorites: number;
   };
 }
 
@@ -61,7 +88,7 @@ const SalonsScreen = ({ navigation }: SalonsScreenProps) => {
 
     // Filter by city
     if (selectedCity) {
-      filtered = filtered.filter(salon => salon.address.city === selectedCity);
+      filtered = filtered.filter(salon => salon.location.city === selectedCity);
     }
 
     // Filter by search query
@@ -69,11 +96,11 @@ const SalonsScreen = ({ navigation }: SalonsScreenProps) => {
       filtered = filtered.filter(
         salon =>
           salon.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          salon.address.city
+          salon.location.city
             .toLowerCase()
             .includes(searchQuery.toLowerCase()) ||
           salon.services.some(service =>
-            service.toLowerCase().includes(searchQuery.toLowerCase()),
+            service.name.toLowerCase().includes(searchQuery.toLowerCase()),
           ),
       );
     }
@@ -111,8 +138,9 @@ const SalonsScreen = ({ navigation }: SalonsScreenProps) => {
   };
 
   const renderSalon = ({ item }: { item: Salon }) => {
+    // ✅ було: day.isOpen — в БД поле називається closed (інвертована логіка)
     const isOpen = item.workingHours
-      ? Object.values(item.workingHours).some(day => day.isOpen)
+      ? Object.values(item.workingHours).some(day => !day.closed)
       : false;
 
     return (
@@ -139,22 +167,28 @@ const SalonsScreen = ({ navigation }: SalonsScreenProps) => {
             {isOpen && <View style={styles.openBadge} />}
           </View>
 
+          {/* ✅ було: item.address.city, item.address.street */}
           <Text style={styles.salonAddress} numberOfLines={1}>
-            📍 {item.address.city}, {item.address.street}
+            📍 {item.location.city}, {item.location.address}
           </Text>
 
           <View style={styles.ratingContainer}>
-            <Text style={styles.rating}>⭐ {item.rating.toFixed(1)}</Text>
+            {/* ✅ було: item.rating.toFixed(1) — тепер rating це об'єкт */}
+            <Text style={styles.rating}>
+              ⭐ {item.rating.average.toFixed(1)}
+            </Text>
+            {/* ✅ було: item.reviewsCount */}
             <Text style={styles.reviewsCount}>
-              ({item.reviewsCount} відгуків)
+              ({item.rating.count} відгуків)
             </Text>
           </View>
 
           <View style={styles.servicesContainer}>
-            {item.services.slice(0, 3).map((service, index) => (
-              <View key={index} style={styles.serviceBadge}>
+            {/* ✅ було: service — рядок. Тепер service — об'єкт з полем .name */}
+            {item.services.slice(0, 3).map(service => (
+              <View key={service._id} style={styles.serviceBadge}>
                 <Text style={styles.serviceText} numberOfLines={1}>
-                  {service}
+                  {service.name}
                 </Text>
               </View>
             ))}

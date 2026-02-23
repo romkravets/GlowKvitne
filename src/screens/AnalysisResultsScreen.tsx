@@ -1,6 +1,5 @@
 /**
- * Analysis Results Screen
- * Відображення результатів аналізу
+ * Analysis Results Screen — оновлено під нову схему MongoDB
  */
 
 import React from 'react';
@@ -33,87 +32,80 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
   route,
 }) => {
   const { analysisResult } = route.params;
-  console.log('Analysis result:', analysisResult);
+  const la = analysisResult.larsonAnalysis;
 
-  // Extract data from analysisResult
-  const colorType =
-    analysisResult.larsonAnalysis?.seasonalType?.primary || 'Unknown';
-  const confidence =
-    parseFloat(analysisResult.larsonAnalysis?.seasonalType?.confidence || '0') /
-    100;
+  // ── Larson Style Type ─────────────────────────────────────────
+  const styleType = la?.styleType?.result || 'Unknown';
+  const confidence = la?.styleType?.confidence || {};
+  const dominantScore = Math.max(
+    ...Object.values(confidence).map((v: any) =>
+      typeof v === 'object' ? v.score ?? 0 : v ?? 0,
+    ),
+    0,
+  );
 
-  const undertone =
-    analysisResult.larsonAnalysis?.undertone?.result || 'neutral';
-  const undertoneConfidence =
-    analysisResult.larsonAnalysis?.undertone?.confidence || 'N/A';
+  // ── Color season (з colorPalette або recommendations) ────────
+  // colorSeason не зберігається в схемі — беремо з reasoning або показуємо chroma
+  const chromaResult = la?.chroma?.result || '';
+  const chromaReason = la?.chroma?.reasoning || '';
+  const valueResult = la?.value?.result || '';
+  const overallContrast = la?.value?.overallContrast || '';
 
-  const kibbeType =
-    analysisResult.kibbeAnalysis?.kibbeType?.result || 'Unknown';
-  const kibbeConfidence =
-    analysisResult.kibbeAnalysis?.kibbeType?.confidence || 'N/A';
-  const kibbeRecommendations =
-    analysisResult.kibbeAnalysis?.styleRecommendations;
+  // ── Palette ───────────────────────────────────────────────────
+  const neutralColors = la?.colorPalette?.bestColors?.neutrals || [];
+  const accentColors = la?.colorPalette?.bestColors?.accents || [];
+  const metals = la?.colorPalette?.bestColors?.metals || '';
+  const avoidColors = la?.colorPalette?.avoidColors || [];
+  const paletteReason = la?.colorPalette?.reasoning || '';
 
-  const archetypeBlend =
-    analysisResult.archetypeAnalysis?.blendName || 'Unknown';
-  const archetypeKeywords =
-    analysisResult.archetypeAnalysis?.styleKeywords || [];
-  const primaryEssence = analysisResult.archetypeAnalysis?.primaryEssence;
+  // ── Recommendations ───────────────────────────────────────────
+  // Можуть бути в la.integratedRecommendations АБО в recommendations (верхній рівень)
+  const rec = (la?.integratedRecommendations ||
+    analysisResult.recommendations) as any;
+  const makeupRecs = rec?.makeup;
+  const hairRecs = rec?.hair;
+  const sigStyle = rec?.signatureStyle?.description || '';
+  const patterns =
+    rec?.patterns?.bestPatterns ||
+    (typeof rec?.signatureStyle?.patterns === 'string'
+      ? rec.signatureStyle.patterns.split(/,\s*/).filter(Boolean)
+      : []);
+  const jewelry = rec?.jewelryAndAccessories;
 
-  // Палітра кольорів
-  const neutralColors =
-    analysisResult.larsonAnalysis?.colorPalette?.bestColors?.neutrals || [];
-  const accentColors =
-    analysisResult.larsonAnalysis?.colorPalette?.bestColors?.accents || [];
-  const metals =
-    analysisResult.larsonAnalysis?.colorPalette?.bestColors?.metals ||
-    'Unknown';
+  // ── Celebrity matches ─────────────────────────────────────────
+  const celebrityMatches = la?.celebrityMatches || [];
 
-  // Рекомендації
-  const makeupRecs = analysisResult.recommendations?.makeup;
-  const hairRecs = analysisResult.recommendations?.hair;
-  const celebrityTwins =
-    analysisResult.recommendations?.celebrityTwins ||
-    analysisResult.celebrityMatches ||
-    [];
+  // ── Archetype ─────────────────────────────────────────────────
+  const archetype = la?.archetypeAnalysis;
+  const hasArchetype = !!archetype?.blendName;
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Я пройшла аналіз у GlowKvitne! Мій колоротип: ${colorType}`,
+        message: `Я пройшла аналіз у GlowKvitne! Мій стиль-тип: ${styleType}`,
       });
     } catch (error) {
       console.error('Error sharing:', error);
     }
   };
 
-  const handleViewMyAnalyses = () => {
-    navigation.navigate('MyAnalysis');
-  };
-
-  const handleDownloadPDF = () => {
-    Alert.alert('У розробці', 'Функція завантаження PDF в розробці');
-  };
-
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      {/* Header Buttons */}
+      {/* Header */}
       <View style={styles.headerButtonsRow}>
         <TouchableOpacity
           style={styles.backIconButton}
           onPress={() => navigation.goBack()}
-          accessibilityLabel="Назад"
         >
           <Text style={styles.backIconText}>◀ Назад</Text>
         </TouchableOpacity>
-
         <View style={styles.headerButtons}>
           <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
             <Text style={styles.iconButtonText}>📤 Share</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconButton}
-            onPress={handleViewMyAnalyses}
+            onPress={() => navigation.navigate('MyAnalysis')}
           >
             <Text style={styles.iconButtonText}>📊 Мої аналізи</Text>
           </TouchableOpacity>
@@ -121,250 +113,356 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Color Type Section */}
+        {/* ── Larson Style Type ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🎨 ВАШ КОЛОРОТИП</Text>
+          <Text style={styles.sectionTitle}>✨ LARSON STYLE TYPE</Text>
           <View style={styles.resultCard}>
-            <View style={styles.resultHeader}>
-              <Text style={styles.resultType}>{colorType}</Text>
-              <View style={styles.confidenceBadge}>
-                <Text style={styles.confidenceText}>
-                  Впевненість: {Math.round(confidence * 100)}%
-                </Text>
-              </View>
-            </View>
-
-            {/* User Photo Placeholder */}
-            <View style={styles.photoContainer}>
-              <View style={styles.photoPlaceholder}>
-                <Text style={styles.photoText}>Ваше фото</Text>
-              </View>
-            </View>
-
-            <View style={styles.characteristics}>
-              <Text style={styles.characteristicsTitle}>Характеристики:</Text>
-              <CharacteristicItem
-                text={`Undertone: ${undertone} (${undertoneConfidence})`}
-              />
-              {analysisResult.larsonAnalysis?.undertone?.indicators
-                ?.slice(0, 3)
-                .map((indicator, idx) => (
-                  <CharacteristicItem key={idx} text={indicator} />
-                ))}
-            </View>
-          </View>
-        </View>
-
-        {/* Color Palette Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🎨 ВАША ПАЛІТРА</Text>
-          <View style={styles.paletteCard}>
-            <Text style={styles.paletteSubtitle}>Базові кольори</Text>
-            <View style={styles.colorRowFull}>
-              {neutralColors.map((color, index) => (
-                <View key={index} style={styles.colorSwatchItem}>
-                  <View
-                    style={[styles.colorCircle, { backgroundColor: color }]}
-                  />
-                  <Text style={styles.colorHexText}>{color}</Text>
-                </View>
-              ))}
-            </View>
-
-            {accentColors.length > 0 && (
-              <>
-                <Text style={styles.paletteSubtitleWithMargin}>
-                  Акцентні кольори
-                </Text>
-                <View style={styles.colorRowFull}>
-                  {accentColors.map((color, index) => (
-                    <View key={index} style={styles.colorSwatchItem}>
-                      <View
-                        style={[styles.colorCircle, { backgroundColor: color }]}
-                      />
-                      <Text style={styles.colorHexText}>{color}</Text>
-                    </View>
-                  ))}
-                </View>
-              </>
-            )}
-
-            <View style={styles.metalContainer}>
-              <Text style={styles.metalLabel}>Метал:</Text>
-              <Text style={styles.metalValue}>{metals}</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.downloadPaletteButton}
-              onPress={() => navigation.navigate('PaletteTab' as any)}
-            >
-              <Text style={styles.downloadPaletteText}>
-                Переглянути повну палітру →
+            <Text style={styles.resultType}>{styleType.toUpperCase()}</Text>
+            <View style={styles.confidenceBadge}>
+              <Text style={styles.confidenceText}>
+                Впевненість: {Math.round(dominantScore * 100)}%
               </Text>
-            </TouchableOpacity>
+            </View>
+
+            {/* Confidence bars */}
+            <View style={{ marginTop: 16 }}>
+              {Object.entries(confidence).map(([key, val]: [string, any]) => {
+                const score =
+                  typeof val === 'object' ? val.score ?? 0 : val ?? 0;
+                return (
+                  <View key={key} style={styles.barRow}>
+                    <Text style={styles.barLabel}>{key}</Text>
+                    <View style={styles.barTrack}>
+                      <View
+                        style={[
+                          styles.barFill,
+                          { width: `${score * 100}%` as any },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.barPct}>
+                      {Math.round(score * 100)}%
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Signature style */}
+            {!!sigStyle && (
+              <View style={styles.sigStyleBox}>
+                <Text style={styles.sigStyleLabel}>Ваш стиль:</Text>
+                <Text style={styles.sigStyleText}>{sigStyle}</Text>
+              </View>
+            )}
           </View>
         </View>
 
-        {/* Avoid Colors - hide if no data */}
-        {analysisResult.larsonAnalysis?.colorPalette && (
+        {/* ── Value & Chroma ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🔬 АНАЛІЗ КОЛОРИСТИКИ</Text>
+          <View style={styles.resultCard}>
+            <View style={styles.tagsRow}>
+              {!!valueResult && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>Value: {valueResult}</Text>
+                </View>
+              )}
+              {!!chromaResult && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>Chroma: {chromaResult}</Text>
+                </View>
+              )}
+              {!!overallContrast && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>
+                    Contrast: {overallContrast}
+                  </Text>
+                </View>
+              )}
+              {!!metals && (
+                <View style={[styles.tag, styles.tagGold]}>
+                  <Text style={styles.tagText}>
+                    {metals === 'gold'
+                      ? '🥇'
+                      : metals === 'silver'
+                      ? '🥈'
+                      : '💍'}{' '}
+                    {metals}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {!!chromaReason && (
+              <Text style={styles.reasonText}>{chromaReason}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* ── Color Palette ── */}
+        {(neutralColors.length > 0 || accentColors.length > 0) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>🎨 ВАША ПАЛІТРА</Text>
+            <View style={styles.paletteCard}>
+              {neutralColors.length > 0 && (
+                <>
+                  <Text style={styles.paletteSubtitle}>Базові кольори</Text>
+                  <View style={styles.colorRowFull}>
+                    {neutralColors.map((color, index) => {
+                      const hex =
+                        (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
+                      return (
+                        <View key={index} style={styles.colorSwatchItem}>
+                          <View
+                            style={[
+                              styles.colorCircle,
+                              { backgroundColor: hex },
+                            ]}
+                          />
+                          <Text style={styles.colorHexText}>{hex}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              {accentColors.length > 0 && (
+                <>
+                  <Text style={styles.paletteSubtitleWithMargin}>
+                    Акцентні кольори
+                  </Text>
+                  <View style={styles.colorRowFull}>
+                    {accentColors.map((color, index) => {
+                      const hex =
+                        (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
+                      return (
+                        <View key={index} style={styles.colorSwatchItem}>
+                          <View
+                            style={[
+                              styles.colorCircle,
+                              { backgroundColor: hex },
+                            ]}
+                          />
+                          <Text style={styles.colorHexText}>{hex}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              {!!paletteReason && (
+                <Text style={[styles.reasonText, { marginTop: 12 }]}>
+                  {paletteReason}
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* ── Avoid Colors ── */}
+        {avoidColors.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>❌ УНИКАЙТЕ</Text>
-            <View style={styles.avoidCard}>
-              <Text style={styles.avoidText}>
-                {analysisResult.larsonAnalysis.colorPalette.reasoning ||
-                  'Уникайте кольорів, що не гармонують з вашим колоротипом'}
-              </Text>
+            <View style={styles.paletteCard}>
+              <View style={styles.colorRowFull}>
+                {avoidColors.map((color, index) => {
+                  const hex =
+                    (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
+                  return (
+                    <View key={index} style={styles.colorSwatchItem}>
+                      <View
+                        style={[
+                          styles.colorCircle,
+                          styles.avoidCircle,
+                          { backgroundColor: hex },
+                        ]}
+                      />
+                      <Text style={styles.colorHexText}>{hex}</Text>
+                    </View>
+                  );
+                })}
+              </View>
             </View>
           </View>
         )}
 
-        {/* Kibbe Body Type */}
-        {kibbeType !== 'Unknown' && (
+        {/* ── Patterns ── */}
+        {patterns.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>👗 ТИП ФІГУРИ (KIBBE)</Text>
+            <Text style={styles.sectionTitle}>🖼 ПРИНТИ ТА ВІЗЕРУНКИ</Text>
             <View style={styles.resultCard}>
-              <Text style={styles.kibbeType}>{kibbeType}</Text>
-              <Text style={styles.confidenceSmall}>
-                Впевненість: {kibbeConfidence}
-              </Text>
-
-              {kibbeRecommendations && (
-                <View style={styles.kibbeDetails}>
-                  {kibbeRecommendations.silhouettes &&
-                    kibbeRecommendations.silhouettes.length > 0 && (
-                      <>
-                        <Text style={styles.kibbeSubtitle}>
-                          Рекомендовані силуети:
-                        </Text>
-                        {kibbeRecommendations.silhouettes
-                          .slice(0, 5)
-                          .map((item, idx) => (
-                            <CharacteristicItem key={idx} text={item} />
-                          ))}
-                      </>
-                    )}
-
-                  {kibbeRecommendations.fabrics && (
-                    <>
-                      <Text style={styles.kibbeSubtitleWithMargin}>
-                        Тканини:
-                      </Text>
-                      <CharacteristicItem text={kibbeRecommendations.fabrics} />
-                    </>
-                  )}
-                </View>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* Essence */}
-        {archetypeBlend !== 'Unknown' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>✨ ВАША ЕСЕНЦІЯ</Text>
-            <View style={styles.resultCard}>
-              <Text style={styles.essenceType}>{archetypeBlend}</Text>
-
-              {primaryEssence && (
-                <View style={styles.essenceBar}>
-                  <Text style={styles.essenceLabel}>
-                    {primaryEssence.percentage}% {primaryEssence.name}
-                  </Text>
-                  <View style={styles.progressBar}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: `${primaryEssence.percentage}%` },
-                      ]}
-                    />
+              <View style={styles.tagsRow}>
+                {patterns.map((p: string, i: number) => (
+                  <View key={i} style={styles.tagOutline}>
+                    <Text style={styles.tagOutlineText}>{p.trim()}</Text>
                   </View>
-                </View>
-              )}
-
-              {archetypeKeywords.length > 0 && (
-                <Text style={styles.essenceVibe}>
-                  Ваш вайб:{' '}
-                  <Text style={styles.essenceVibeText}>
-                    {archetypeKeywords.slice(0, 5).join(', ')}
-                  </Text>
-                </Text>
-              )}
+                ))}
+              </View>
             </View>
           </View>
         )}
 
-        {/* Celebrity Twins */}
-        {celebrityTwins.length > 0 && (
+        {/* ── Celebrity Twins ── */}
+        {celebrityMatches.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🌟 ВАШІ CELEBRITY TWINS</Text>
+            <Text style={styles.sectionTitle}>🌟 CELEBRITY TWINS</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.celebritiesRow}
             >
-              {celebrityTwins.map((celeb, index) => (
+              {celebrityMatches.map((celeb: any, index: number) => (
                 <View key={index} style={styles.celebrityCard}>
                   <View style={styles.celebrityImage}>
                     <Text style={styles.celebrityPlaceholder}>👤</Text>
                   </View>
                   <Text style={styles.celebrityName}>{celeb.name}</Text>
                   <Text style={styles.celebrityMatch}>{celeb.similarity}%</Text>
+                  {!!celeb.matchReason && (
+                    <Text style={styles.celebrityReason} numberOfLines={3}>
+                      {celeb.matchReason}
+                    </Text>
+                  )}
                 </View>
               ))}
             </ScrollView>
-            <TouchableOpacity
-              style={styles.detailsButton}
-              onPress={() =>
-                navigation.navigate('CelebrityDetails', {
-                  celebrities: celebrityTwins,
-                } as any)
-              }
-            >
-              <Text style={styles.detailsButtonText}>Детальніше →</Text>
-            </TouchableOpacity>
           </View>
         )}
 
-        {/* Makeup & Hair */}
+        {/* ── Makeup ── */}
         {makeupRecs && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>💄 МАКІЯЖ</Text>
             <View style={styles.tipsCard}>
-              {makeupRecs.lipColors && makeupRecs.lipColors.length > 0 && (
-                <TipItem
-                  label="Губи"
-                  value={makeupRecs.lipColors.slice(0, 2).join(', ')}
-                />
+              {makeupRecs.lipColors?.length > 0 && (
+                <ColorTipRow label="Губи" colors={makeupRecs.lipColors} />
               )}
-              {makeupRecs.eyeColors && makeupRecs.eyeColors.length > 0 && (
-                <TipItem
-                  label="Очі"
-                  value={makeupRecs.eyeColors.slice(0, 2).join(', ')}
-                />
+              {makeupRecs.eyeColors?.length > 0 && (
+                <ColorTipRow label="Очі" colors={makeupRecs.eyeColors} />
               )}
-              {makeupRecs.blushColors && makeupRecs.blushColors.length > 0 && (
-                <TipItem
-                  label="Рум'яна"
-                  value={makeupRecs.blushColors.slice(0, 2).join(', ')}
-                />
+              {makeupRecs.blushColors?.length > 0 && (
+                <ColorTipRow label="Рум'яна" colors={makeupRecs.blushColors} />
               )}
             </View>
           </View>
         )}
 
-        {hairRecs && hairRecs.colors && hairRecs.colors.length > 0 && (
+        {/* ── Hair ── */}
+        {hairRecs && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>💇 ВОЛОССЯ</Text>
             <View style={styles.tipsCard}>
-              <Text style={styles.tipsTitle}>Кращі відтінки:</Text>
-              {hairRecs.colors.slice(0, 5).map((color, idx) => (
-                <CharacteristicItem key={idx} text={color} />
-              ))}
+              {hairRecs.colors?.length > 0 && (
+                <>
+                  <Text style={styles.tipsTitle}>Кращі відтінки:</Text>
+                  <View style={styles.colorRowFull}>
+                    {hairRecs.colors
+                      .slice(0, 6)
+                      .map((color: string, idx: number) => {
+                        const hex = (color || '').match(
+                          /#[0-9A-Fa-f]{3,6}/,
+                        )?.[0];
+                        const name = color
+                          .replace(/#[0-9A-Fa-f]{3,6}\s*/g, '')
+                          .trim();
+                        return (
+                          <View key={idx} style={styles.colorSwatchItem}>
+                            {hex ? (
+                              <View
+                                style={[
+                                  styles.colorCircle,
+                                  { backgroundColor: hex },
+                                ]}
+                              />
+                            ) : null}
+                            <Text style={styles.colorHexText}>
+                              {hex || name}
+                            </Text>
+                            {name && hex ? (
+                              <Text style={styles.colorDescText}>{name}</Text>
+                            ) : null}
+                          </View>
+                        );
+                      })}
+                  </View>
+                </>
+              )}
+              {hairRecs.styles?.length > 0 && (
+                <TipItem
+                  label="Стиль"
+                  value={
+                    Array.isArray(hairRecs.styles)
+                      ? hairRecs.styles.join(' ')
+                      : hairRecs.styles
+                  }
+                />
+              )}
+              {!!hairRecs.avoid && (
+                <TipItem label="Уникати" value={hairRecs.avoid} />
+              )}
             </View>
           </View>
         )}
 
-        {/* CTA Buttons */}
+        {/* ── Jewelry ── */}
+        {jewelry && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>💍 ПРИКРАСИ</Text>
+            <View style={styles.tipsCard}>
+              {!!jewelry.metals && (
+                <TipItem label="Метали" value={jewelry.metals} />
+              )}
+              {!!jewelry.sizes && (
+                <TipItem label="Розмір" value={jewelry.sizes} />
+              )}
+              {!!jewelry.styles && (
+                <TipItem label="Стиль" value={jewelry.styles} />
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* ── Archetype (якщо є) ── */}
+        {hasArchetype && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>✨ АРХЕТИП</Text>
+            <View style={styles.resultCard}>
+              <Text style={styles.essenceType}>{archetype?.blendName}</Text>
+              {archetype?.primaryEssence?.name && (
+                <View style={styles.essenceBar}>
+                  <Text style={styles.essenceLabel}>
+                    {archetype.primaryEssence.percentage}%{' '}
+                    {archetype.primaryEssence.name}
+                  </Text>
+                  <View style={styles.progressBar}>
+                    <View
+                      style={[
+                        styles.barFill,
+                        {
+                          width:
+                            `${archetype.primaryEssence.percentage}%` as any,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              )}
+              {archetype?.styleKeywords?.length > 0 && (
+                <View style={[styles.tagsRow, { marginTop: 8 }]}>
+                  {archetype.styleKeywords.map((kw: string, i: number) => (
+                    <View key={i} style={styles.tagOutline}>
+                      <Text style={styles.tagOutlineText}>{kw}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* CTA */}
         <TouchableOpacity
           style={styles.primaryButton}
           onPress={() =>
@@ -378,7 +476,9 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
 
         <TouchableOpacity
           style={styles.secondaryButton}
-          onPress={handleDownloadPDF}
+          onPress={() =>
+            Alert.alert('У розробці', 'Функція завантаження PDF в розробці')
+          }
         >
           <Text style={styles.secondaryButtonText}>📥 Завантажити PDF</Text>
         </TouchableOpacity>
@@ -387,11 +487,28 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
   );
 };
 
-// Helper Components
-const CharacteristicItem: React.FC<{ text: string }> = ({ text }) => (
-  <View style={styles.characteristicItem}>
-    <Text style={styles.characteristicBullet}>•</Text>
-    <Text style={styles.characteristicText}>{text}</Text>
+// ── Helper Components ─────────────────────────────────────────────────────────
+
+const ColorTipRow: React.FC<{ label: string; colors: string[] }> = ({
+  label,
+  colors,
+}) => (
+  <View style={styles.colorTipRow}>
+    <Text style={styles.tipLabel}>{label}:</Text>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>
+      {colors.slice(0, 4).map((color, i) => {
+        const hex = (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0];
+        const name = color.replace(/#[0-9A-Fa-f]{3,6}\s*/g, '').trim();
+        return (
+          <View key={i} style={styles.colorTipChip}>
+            {hex && (
+              <View style={[styles.colorDot, { backgroundColor: hex }]} />
+            )}
+            <Text style={styles.colorTipText}>{name || hex}</Text>
+          </View>
+        );
+      })}
+    </View>
   </View>
 );
 
@@ -406,37 +523,27 @@ const TipItem: React.FC<{ label: string; value: string }> = ({
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
-  headerButtons: {
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  headerButtonsRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 12,
+    paddingTop: 50,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
+  backIconButton: { paddingVertical: 8, paddingHorizontal: 10 },
+  backIconText: { fontSize: 14, color: '#1A1A1A', fontWeight: '600' },
+  headerButtons: { flexDirection: 'row', gap: 12, paddingVertical: 12 },
   iconButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: '#F5F5F5',
     borderRadius: 20,
   },
-  iconButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666666',
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  section: {
-    marginBottom: 24,
-  },
+  iconButtonText: { fontSize: 14, fontWeight: '600', color: '#666666' },
+  scrollContent: { padding: 20 },
+  section: { marginBottom: 24 },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -449,254 +556,130 @@ const styles = StyleSheet.create({
     padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
-  resultHeader: {
-    marginBottom: 16,
-  },
   resultType: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
     color: '#C49B63',
     marginBottom: 8,
   },
   confidenceBadge: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#FFF8EF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#C49B63',
   },
-  confidenceText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666666',
+  confidenceText: { fontSize: 13, fontWeight: '600', color: '#C49B63' },
+  barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  barLabel: {
+    width: 70,
+    fontSize: 12,
+    color: '#666',
+    textTransform: 'capitalize',
   },
-  photoContainer: {
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  photoPlaceholder: {
-    width: width - 80,
-    height: (width - 80) * 1.2,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  photoText: {
-    fontSize: 16,
-    color: '#999999',
-  },
-  characteristics: {
-    marginTop: 16,
-  },
-  characteristicsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 8,
-  },
-  characteristicItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 6,
-  },
-  characteristicBullet: {
-    fontSize: 16,
-    color: '#C49B63',
-    marginRight: 8,
-  },
-  characteristicText: {
+  barTrack: {
     flex: 1,
-    fontSize: 14,
-    color: '#666666',
+    height: 6,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginHorizontal: 8,
   },
+  barFill: { height: '100%', backgroundColor: '#C49B63', borderRadius: 3 },
+  barPct: { width: 36, fontSize: 12, color: '#999', textAlign: 'right' },
+  sigStyleBox: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#FFF8EF',
+    borderRadius: 8,
+  },
+  sigStyleLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#C49B63',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sigStyleText: { fontSize: 13, color: '#555', lineHeight: 20 },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tag: {
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  tagGold: {
+    backgroundColor: '#FFF8EF',
+    borderWidth: 1,
+    borderColor: '#C49B63',
+  },
+  tagText: { fontSize: 13, color: '#555', textTransform: 'capitalize' },
+  tagOutline: {
+    borderWidth: 1,
+    borderColor: '#C49B63',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+  },
+  tagOutlineText: { fontSize: 12, color: '#C49B63' },
+  reasonText: { fontSize: 13, color: '#666', lineHeight: 20, marginTop: 8 },
   paletteCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
   paletteSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#666666',
+    color: '#999',
     marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   paletteSubtitleWithMargin: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#666666',
+    color: '#999',
     marginBottom: 12,
     marginTop: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  colorRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  colorRowFull: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    alignItems: 'flex-start',
-  },
-  colorSwatchItem: {
-    width: 72,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  colorHexText: {
-    marginTop: 6,
-    fontSize: 11,
-    color: '#666666',
-  },
+  colorRowFull: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  colorSwatchItem: { alignItems: 'center', width: 60 },
   colorCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: '#FFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 2,
   },
-  metalContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  metalLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666666',
-    marginRight: 8,
-  },
-  metalValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-  downloadPaletteButton: {
-    marginTop: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  downloadPaletteText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#C49B63',
-  },
-  avoidCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  avoidText: {
-    fontSize: 14,
-    color: '#666666',
-    marginTop: 12,
-  },
-  kibbeType: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 4,
-  },
-  confidenceSmall: {
-    fontSize: 14,
-    color: '#999999',
-    marginBottom: 16,
-  },
-  kibbeDetails: {
-    marginTop: 12,
-  },
-  kibbeSubtitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 8,
-  },
-  kibbeSubtitleWithMargin: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  essenceType: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 20,
-  },
-  essenceBar: {
-    marginBottom: 16,
-  },
-  essenceLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666666',
-    marginBottom: 8,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#C49B63',
-  },
-  progressFill65: {
-    height: '100%',
-    width: '65%',
-    backgroundColor: '#C49B63',
-  },
-  progressFill35: {
-    height: '100%',
-    width: '35%',
-    backgroundColor: '#C49B63',
-  },
-  essenceVibe: {
-    fontSize: 14,
-    color: '#666666',
-    marginTop: 8,
-  },
-  essenceVibeText: {
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-  celebritiesRow: {
-    paddingRight: 20,
-  },
-  celebrityCard: {
-    width: 100,
-    marginRight: 12,
-    alignItems: 'center',
-  },
+  avoidCircle: { borderWidth: 2, borderColor: '#FF4444' },
+  colorHexText: { marginTop: 4, fontSize: 10, color: '#888' },
+  colorDescText: { fontSize: 10, color: '#aaa', textAlign: 'center' },
+  celebritiesRow: { paddingRight: 20 },
+  celebrityCard: { width: 130, marginRight: 16, alignItems: 'center' },
   celebrityImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     backgroundColor: '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
@@ -704,30 +687,25 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#C49B63',
   },
-  celebrityPlaceholder: {
-    fontSize: 40,
-  },
+  celebrityPlaceholder: { fontSize: 36 },
   celebrityName: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1A1A1A',
     textAlign: 'center',
     marginBottom: 4,
   },
   celebrityMatch: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: '#C49B63',
+    marginBottom: 4,
   },
-  detailsButton: {
-    marginTop: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  detailsButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#C49B63',
+  celebrityReason: {
+    fontSize: 11,
+    color: '#888',
+    textAlign: 'center',
+    lineHeight: 16,
   },
   tipsCard: {
     backgroundColor: '#FFFFFF',
@@ -735,47 +713,50 @@ const styles = StyleSheet.create({
     padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
   tipsTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#666666',
-    marginBottom: 8,
+    color: '#999',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  tipItem: {
+  tipItem: { flexDirection: 'row', marginBottom: 10, alignItems: 'flex-start' },
+  tipLabel: { fontSize: 13, fontWeight: '700', color: '#1A1A1A', width: 80 },
+  tipValue: { flex: 1, fontSize: 13, color: '#555', lineHeight: 20 },
+  colorTipRow: {
     flexDirection: 'row',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  tipLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    minWidth: 80,
-  },
-  tipValue: {
-    flex: 1,
-    fontSize: 14,
-    color: '#666666',
-  },
-  headerButtonsRow: {
+  colorTipChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 38,
-    paddingTop: 50,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
   },
-  backIconButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  backIconText: {
-    fontSize: 14,
+  colorDot: { width: 12, height: 12, borderRadius: 6 },
+  colorTipText: { fontSize: 11, color: '#555' },
+  essenceType: {
+    fontSize: 22,
+    fontWeight: '700',
     color: '#1A1A1A',
-    fontWeight: '600',
+    marginBottom: 16,
+  },
+  essenceBar: { marginBottom: 12 },
+  essenceLabel: { fontSize: 13, color: '#666', marginBottom: 6 },
+  progressBar: {
+    height: 6,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 3,
+    overflow: 'hidden',
   },
   primaryButton: {
     backgroundColor: '#C49B63',
@@ -790,11 +771,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  primaryButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
+  primaryButtonText: { fontSize: 18, fontWeight: '600', color: '#FFFFFF' },
   secondaryButton: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -804,11 +781,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 30,
   },
-  secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#C49B63',
-  },
+  secondaryButtonText: { fontSize: 16, fontWeight: '600', color: '#C49B63' },
 });
 
 export default AnalysisResultsScreen;

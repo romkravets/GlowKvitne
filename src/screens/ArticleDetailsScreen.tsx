@@ -14,13 +14,14 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import axios from 'axios';
 import { API_CONFIG } from '../config/firebase';
+import { Markdown } from 'react-native-markdown-display';
 
 interface Article {
   _id: string;
   title: string;
   slug: string;
   content: string;
-  coverImage: string;
+  coverImage?: string;
   category: string;
   tags: string[];
   author: {
@@ -28,10 +29,13 @@ interface Article {
     avatar?: string;
     bio?: string;
   };
-  likes: number;
-  viewsCount: number;
+  stats: {
+    likes: number;
+    views: number;
+    shares: number;
+  };
   publishedAt: string;
-  readTime: number;
+  readTime?: number;
 }
 
 type ExploreStackParamList = {
@@ -67,7 +71,7 @@ const ArticleDetailsScreen = ({
         `${API_CONFIG.baseURL}/api/public/articles/${slug}`,
       );
       setArticle(response.data.article);
-      setLikesCount(response.data.article.likes);
+      setLikesCount(response.data.article.stats.likes);
     } catch (error) {
       console.error('Error fetching article:', error);
       Alert.alert('Помилка', 'Не вдалося завантажити статтю');
@@ -163,13 +167,12 @@ const ArticleDetailsScreen = ({
             </View>
 
             <View style={styles.stats}>
-              <Text style={styles.viewsCount}>👁 {article.viewsCount}</Text>
+              <Text style={styles.viewsCount}>👁 {article.stats.views}</Text>
             </View>
           </View>
 
           {/* Content */}
-          <Text style={styles.content}>{article.content}</Text>
-
+          <Markdown style={styles.content}>{article.content}</Markdown>
           {/* Tags */}
           {article.tags && article.tags.length > 0 && (
             <View style={styles.tagsContainer}>

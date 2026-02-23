@@ -41,13 +41,19 @@ type ArticlesScreenProps = {
   navigation: NativeStackNavigationProp<ExploreStackParamList, 'Articles'>;
 };
 
+interface Category {
+  value: string;
+  label: string;
+  icon?: string;
+}
+
 const ArticlesScreen = ({ navigation }: ArticlesScreenProps) => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [filteredArticles, setFilteredArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
     fetchArticles();
@@ -88,6 +94,7 @@ const ArticlesScreen = ({ navigation }: ArticlesScreenProps) => {
       const response = await axios.get(
         `${API_CONFIG.baseURL}/api/public/articles`,
       );
+      console.log(response, 'response fetchArticles');
       setArticles(response.data.articles || []);
     } catch (error) {
       console.error('Error fetching articles:', error);
@@ -102,6 +109,7 @@ const ArticlesScreen = ({ navigation }: ArticlesScreenProps) => {
       const response = await axios.get(
         `${API_CONFIG.baseURL}/api/public/articles/categories`,
       );
+      console.log(response, 'fetchCategories');
       setCategories(response.data.categories || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -202,7 +210,7 @@ const ArticlesScreen = ({ navigation }: ArticlesScreenProps) => {
           horizontal
           showsHorizontalScrollIndicator={false}
           data={[null, ...categories]}
-          keyExtractor={(item, index) => item || `all-${index}`}
+          keyExtractor={(item, index) => (item ? String(item) : `all-${index}`)}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[
@@ -217,7 +225,7 @@ const ArticlesScreen = ({ navigation }: ArticlesScreenProps) => {
                   selectedCategory === item && styles.categoryButtonTextActive,
                 ]}
               >
-                {item || 'Всі категорії'}
+                {item?.label ?? item ?? 'Всі категорії'}
               </Text>
             </TouchableOpacity>
           )}
