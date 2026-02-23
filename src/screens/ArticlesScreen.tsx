@@ -41,13 +41,19 @@ type ArticlesScreenProps = {
   navigation: NativeStackNavigationProp<ExploreStackParamList, 'Articles'>;
 };
 
+interface Category {
+  value: string;
+  label: string;
+  icon?: string;
+}
+
 const ArticlesScreen = ({ navigation }: ArticlesScreenProps) => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [filteredArticles, setFilteredArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
     fetchArticles();
@@ -204,7 +210,7 @@ const ArticlesScreen = ({ navigation }: ArticlesScreenProps) => {
           horizontal
           showsHorizontalScrollIndicator={false}
           data={[null, ...categories]}
-          keyExtractor={(item, index) => item || `all-${index}`}
+          keyExtractor={(item, index) => (item ? String(item) : `all-${index}`)}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[
@@ -219,7 +225,7 @@ const ArticlesScreen = ({ navigation }: ArticlesScreenProps) => {
                   selectedCategory === item && styles.categoryButtonTextActive,
                 ]}
               >
-                {item || 'Всі категорії'}
+                {item?.label ?? item ?? 'Всі категорії'}
               </Text>
             </TouchableOpacity>
           )}

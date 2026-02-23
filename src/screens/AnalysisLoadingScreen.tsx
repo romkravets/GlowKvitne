@@ -103,6 +103,7 @@ const AnalysisLoadingScreen: React.FC<AnalysisLoadingScreenProps> = ({
   // Real API polling - runs ONCE on mount
   useEffect(() => {
     let isCancelled = false;
+    const controller = new AbortController();
 
     const startPolling = async () => {
       try {
@@ -116,8 +117,9 @@ const AnalysisLoadingScreen: React.FC<AnalysisLoadingScreenProps> = ({
               setCurrentStep(2);
             }
           },
-          60, // 60 спроб = 5 хвилин
+          30, // 60 спроб = 5 хвилин
           5000, // перевірка кожні 5 секунд
+          controller.signal,
         );
 
         if (!isCancelled) {
@@ -128,6 +130,12 @@ const AnalysisLoadingScreen: React.FC<AnalysisLoadingScreenProps> = ({
           });
         }
       } catch (error: any) {
+        // If we intentionally aborted, ignore errors
+        if (isCancelled || error?.message === 'Polling aborted') {
+          console.log('ℹ️ Polling was aborted, ignoring error');
+          return;
+        }
+
         if (!isCancelled) {
           console.error('❌ Polling error:', error);
           Alert.alert(
@@ -149,6 +157,7 @@ const AnalysisLoadingScreen: React.FC<AnalysisLoadingScreenProps> = ({
     return () => {
       console.log('🛑 Stopping polling (component unmounted)');
       isCancelled = true;
+      controller.abort();
     };
   }, [analysisId, navigation]);
 

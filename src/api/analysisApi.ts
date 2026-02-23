@@ -84,7 +84,7 @@ export interface Analysis {
     similarity: number;
     matchReason: string;
   }>;
-  recommendations?: {
+  integratedRecommendations?: {
     signatureStyle?: {
       description: string;
       capsuleWardrobe: Array<{
@@ -159,6 +159,20 @@ export async function createAnalysis(
     throw new Error('Необхідна авторизація');
   }
 
+  // Client-side validation: ensure facePhotoBase64 is a non-empty string
+  if (
+    !request ||
+    typeof request.facePhotoBase64 !== 'string' ||
+    request.facePhotoBase64.trim().length === 0
+  ) {
+    throw new Error(
+      'Потрібне фото обличчя у форматі base64 (непорожній рядок)',
+    );
+  }
+
+  // Trim incidental whitespace which may have been introduced
+  request.facePhotoBase64 = request.facePhotoBase64.trim();
+
   const response = await axios.post<CreateAnalysisResponse>(
     `${API_CONFIG.baseURL}/api/analysis/create`,
     request,
@@ -181,24 +195,22 @@ export async function checkAnalysisStatus(
   analysisId: string,
 ): Promise<AnalysisStatusResponse> {
   const token = await getAuthToken();
-
-  if (!token) {
-    throw new Error('Необхідна авторизація');
-  }
+  if (!token) throw new Error('Необхідна авторизація');
 
   const response = await axios.get<AnalysisStatusResponse>(
     `${API_CONFIG.baseURL}/api/analysis/${analysisId}/status`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
       },
+      params: { _t: Date.now() }, // ← головне виправлення
       timeout: 10000,
     },
   );
-
   return response.data;
 }
-
 /**
  * Отримати повний результат аналізу
  */
@@ -274,30 +286,83 @@ export async function pollAnalysisStatus(
   onProgress?: (status: string) => void,
   maxAttempts: number = 60, // 60 спроб = 5 хвилин при інтервалі 5 секунд
   interval: number = 5000, // 5 секунд
+  signal?: AbortSignal,
 ): Promise<Analysis> {
   let attempts = 0;
+  let consecutiveErrors = 0;
+  const maxBackoff = 60000; // 1 хвилина
+  const backoffFactor = 2;
 
   while (attempts < maxAttempts) {
-    attempts++;
+    try {
+      if (signal?.aborted) {
+        throw new Error('Polling aborted');
+      }
+      attempts++;
 
-    const statusResponse = await checkAnalysisStatus(analysisId);
+      const statusResponse = await checkAnalysisStatus(analysisId);
 
-    if (onProgress) {
-      onProgress(statusResponse.status);
+      if (signal?.aborted) {
+        throw new Error('Polling aborted');
+      }
+
+      // успішний виклик - скидаємо лічильник помилок
+      consecutiveErrors = 0;
+
+      if (onProgress) {
+        onProgress(statusResponse.status);
+      }
+
+      if (statusResponse.status === 'completed') {
+        const result = await getAnalysis(analysisId);
+        return result.analysis;
+      }
+
+      if (statusResponse.status === 'failed') {
+        throw new Error(statusResponse.error || 'Аналіз не вдався');
+      }
+
+      // чекати нормальний інтервал перед наступною спробою
+      await new Promise<void>(resolve => setTimeout(() => resolve(), interval));
+    } catch (error: any) {
+      consecutiveErrors++;
+
+      const code = error?.code;
+      const statusCode = error?.response?.status;
+
+      console.warn('pollAnalysisStatus - request error', {
+        analysisId,
+        attempts,
+        consecutiveErrors,
+        code,
+        statusCode,
+        message: error?.message,
+      });
+
+      // Якщо це клієнтська помилка (4xx) - немає сенсу повторювати
+      if (statusCode && statusCode >= 400 && statusCode < 500) {
+        throw new Error(
+          error?.response?.data?.message ||
+            'Помилка запиту. Спробуйте повторити пізніше.',
+        );
+      }
+
+      // Експоненційний backoff (з капом)
+      const backoff = Math.min(
+        interval * Math.pow(backoffFactor, consecutiveErrors),
+        maxBackoff,
+      );
+
+      // Якщо досягли максимальної кількості спроб — виходимо з помилкою
+      if (attempts >= maxAttempts) break;
+
+      if (signal?.aborted) {
+        throw new Error('Polling aborted');
+      }
+
+      await new Promise<void>(resolve => setTimeout(() => resolve(), backoff));
+      // продовжуємо цикл
     }
-
-    if (statusResponse.status === 'completed') {
-      // Отримати повні результати
-      const result = await getAnalysis(analysisId);
-      return result.analysis;
-    }
-
-    if (statusResponse.status === 'failed') {
-      throw new Error(statusResponse.error || 'Аналіз не вдався');
-    }
-
-    // Чекаємо перед наступною спробою
-    await new Promise<void>(resolve => setTimeout(() => resolve(), interval));
   }
 
   throw new Error('Час очікування вичерпано. Спробуйте пізніше.');
