@@ -42,8 +42,8 @@ export interface Analysis {
     };
   } | null; // Photos can be null if not saved to storage
   larsonAnalysis?: {
-    undertone?: {
-      result?: 'warm' | 'cool' | 'neutral';
+    styleType?: {
+      result?: string;
       confidence?: string;
       indicators?: string[];
       scientificReasoning?: string;

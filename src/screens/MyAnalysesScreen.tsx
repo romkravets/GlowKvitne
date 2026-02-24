@@ -72,8 +72,7 @@ const MyAnalysesScreen: React.FC<NavigationProps> = ({ navigation }) => {
 
   const renderAnalysis = ({ item }: { item: Analysis }) => {
     console.log(item);
-    const colorType = item.larsonAnalysis?.seasonalType?.primary || 'Unknown';
-    const kibbeType = item.kibbeAnalysis?.kibbeType?.result;
+    const colorType = item.larsonAnalysis?.styleType?.result || '';
     const date = new Date(item.createdAt).toLocaleDateString('uk-UA', {
       day: 'numeric',
       month: 'long',
@@ -140,10 +139,6 @@ const MyAnalysesScreen: React.FC<NavigationProps> = ({ navigation }) => {
               </View>
             )}
           </View>
-
-          {kibbeType && (
-            <Text style={styles.kibbeType}>Kibbe: {kibbeType}</Text>
-          )}
 
           <Text style={styles.date}>{date}</Text>
 
@@ -343,11 +338,6 @@ const styles = StyleSheet.create({
   tierText: {
     fontSize: 12,
     fontWeight: '600',
-  },
-  kibbeType: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
   },
   date: {
     fontSize: 12,
