@@ -190,7 +190,7 @@ const ProfileScreen: React.FC<NavigationProps> = ({ navigation }) => {
             />
           )}
 
-          <MenuButton
+          <MenuButtonв
             icon="💳"
             title="Підписка"
             subtitle={`Поточний план: ${profile.subscription.toUpperCase()}`}
