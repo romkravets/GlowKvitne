@@ -9,6 +9,7 @@ import { GalleryStackParamList } from './types';
 
 // Screens
 import GalleryScreen from '../screens/GalleryScreen';
+import VirtualTryOnScreen from '../screens/VirtualTryOnScreen';
 import {
   OutfitDetailsScreen,
   GenerateOutfitScreen,
@@ -52,6 +53,14 @@ const GalleryStackNavigator: React.FC = () => {
         options={{
           title: 'Згенерувати образ',
           presentation: 'modal',
+        }}
+      />
+      <Stack.Screen
+        name="VirtualTryOn"
+        component={VirtualTryOnScreen}
+        options={{
+          title: 'Virtual Try-On',
+          headerBackTitle: 'Назад',
         }}
       />
     </Stack.Navigator>

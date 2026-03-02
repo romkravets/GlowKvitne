@@ -54,6 +54,7 @@ export type GalleryStackParamList = {
   Gallery: undefined;
   OutfitDetails: { outfitId: string };
   GenerateOutfit: undefined;
+  VirtualTryOn: undefined;
 };
 
 // Palette Stack (всередині Palette Tab)

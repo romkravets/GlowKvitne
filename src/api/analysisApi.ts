@@ -367,3 +367,44 @@ export async function pollAnalysisStatus(
 
   throw new Error('Час очікування вичерпано. Спробуйте пізніше.');
 }
+
+// ── Virtual Try-On ────────────────────────────────────────────────────────────
+
+export interface VirtualTryOnRequest {
+  imageBase64: string;
+  prompt: string;
+}
+
+export interface VirtualTryOnResponse {
+  /** URL зображення на сервері (CDN / Cloudinary / Replicate output) */
+  resultImageUrl?: string;
+  /** base64 відповідь якщо сервер повертає напряму */
+  resultImageBase64?: string;
+  status: 'completed' | 'failed';
+  message?: string;
+}
+
+/**
+ * Virtual Try-On — зміна зачіски, кольору волосся, макіяжу тощо
+ * Надсилає фото + текстовий prompt на backend, який використовує Replicate Flux Kontext.
+ */
+export async function virtualTryOn(
+  payload: VirtualTryOnRequest,
+): Promise<VirtualTryOnResponse> {
+  const token = await getAuthToken();
+  if (!token) throw new Error('Необхідна авторизація');
+
+  const response = await axios.post<VirtualTryOnResponse>(
+    `${API_CONFIG.baseURL}/api/virtual-tryon`,
+    payload,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 120000, // 2 хв — AI обробка може бути довгою
+    },
+  );
+
+  return response.data;
+}

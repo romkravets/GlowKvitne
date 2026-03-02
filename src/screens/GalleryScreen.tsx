@@ -128,6 +128,24 @@ const GalleryScreen: React.FC<NavigationProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      {/* Virtual Try-On банер */}
+      <TouchableOpacity
+        style={styles.tryOnBanner}
+        onPress={() => navigation.navigate('VirtualTryOn')}
+        activeOpacity={0.85}
+      >
+        <View style={styles.tryOnBannerContent}>
+          <Text style={styles.tryOnBannerEmoji}>✨</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.tryOnBannerTitle}>Virtual Try-On</Text>
+            <Text style={styles.tryOnBannerSub}>
+              Виберіть зачіску, колір волосся та макіяж на своєму фото
+            </Text>
+          </View>
+          <Text style={styles.tryOnBannerArrow}>›</Text>
+        </View>
+      </TouchableOpacity>
+
       <FlatList
         data={outfits}
         renderItem={renderOutfitItem}
@@ -240,6 +258,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  tryOnBanner: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 4,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  tryOnBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  tryOnBannerEmoji: { fontSize: 32 },
+  tryOnBannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  tryOnBannerSub: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.65)',
+    lineHeight: 16,
+  },
+  tryOnBannerArrow: {
+    fontSize: 28,
+    color: '#C49B63',
+    fontWeight: '300',
   },
   fab: {
     position: 'absolute',
