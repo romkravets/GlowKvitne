@@ -11,13 +11,10 @@ import {
   TouchableOpacity,
   Share,
   Alert,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationProps } from '../navigation/types';
 import { Analysis } from '../api/analysisApi';
-
-const { width } = Dimensions.get('window');
 
 interface AnalysisResultsScreenProps extends NavigationProps {
   route: {
@@ -32,45 +29,72 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
   route,
 }) => {
   const { analysisResult } = route.params;
-  const la = analysisResult.larsonAnalysis;
+  const la = analysisResult.larsonAnalysis as any;
 
   // ── Larson Style Type ─────────────────────────────────────────
-  const styleType = la?.styleType?.result || 'Unknown';
-  const confidence = la?.styleType?.confidence || {};
+  const styleType =
+    la?.styleType?.blendName || la?.styleType?.primaryType || 'Unknown';
+  const primaryType = la?.styleType?.primaryType || '';
+  const secondaryType = la?.styleType?.secondaryType || '';
+  // typeScores format: { dramatic: { score, matchingTraits }, classic: { score, matchingTraits }, ... }
+  const confidence = (la?.styleType?.typeScores ||
+    la?.styleType?.confidence ||
+    {}) as Record<string, any>;
   const dominantScore = Math.max(
     ...Object.values(confidence).map((v: any) =>
       typeof v === 'object' ? v.score ?? 0 : v ?? 0,
     ),
     0,
   );
+  const dominantTraits = la?.styleType?.dominantTraits;
+  const styleReasoning = la?.styleType?.reasoning || '';
 
-  // ── Color season (з colorPalette або recommendations) ────────
-  // colorSeason не зберігається в схемі — беремо з reasoning або показуємо chroma
+  // ── Color Season ─────────────────────────────────────────────
+  const colorSeason = (analysisResult as any).colorSeason;
+  const colorSeasonPrimary = colorSeason?.primary || '';
+  const colorSeasonSecondary = colorSeason?.secondary || '';
+  const colorSeasonReasoning = colorSeason?.reasoning || '';
+  const colorSeasonTemperature = colorSeason?.temperature || '';
+  const colorSeasonIntensity = colorSeason?.intensity || '';
+  const colorSeasonContrast = colorSeason?.contrast || '';
+
+  // ── Value & Chroma ────────────────────────────────────────────
   const chromaResult = la?.chroma?.result || '';
   const chromaReason = la?.chroma?.reasoning || '';
   const valueResult = la?.value?.result || '';
   const overallContrast = la?.value?.overallContrast || '';
+  const skinLevel = la?.value?.skinLevel || '';
+  const hairLevel = la?.value?.hairLevel || '';
+  const eyeLevel = la?.value?.eyeLevel || '';
 
   // ── Palette ───────────────────────────────────────────────────
   const neutralColors = la?.colorPalette?.bestColors?.neutrals || [];
   const accentColors = la?.colorPalette?.bestColors?.accents || [];
+  const whiteColors = la?.colorPalette?.bestColors?.whites || [];
+  const blackColors = la?.colorPalette?.bestColors?.blacks || [];
   const metals = la?.colorPalette?.bestColors?.metals || '';
   const avoidColors = la?.colorPalette?.avoidColors || [];
   const paletteReason = la?.colorPalette?.reasoning || '';
 
   // ── Recommendations ───────────────────────────────────────────
-  // Можуть бути в la.integratedRecommendations АБО в recommendations (верхній рівень)
-  const rec = (la?.integratedRecommendations ||
-    analysisResult.recommendations) as any;
-  const makeupRecs = rec?.makeup;
-  const hairRecs = rec?.hair;
-  const sigStyle = rec?.signatureStyle?.description || '';
+  // Berememo z recommendations (top-level) abo la.integratedRecommendations
+  const topRec = (analysisResult as any).recommendations;
+  const intRec = la?.integratedRecommendations;
+  const makeupRecs = topRec?.makeup || intRec?.makeup;
+  const hairRecs = topRec?.hair || intRec?.hair;
+  const sigStyleRec = topRec?.signatureStyle || intRec?.signatureStyle;
+  const sigStyle = sigStyleRec?.description || '';
+  const sigLines = sigStyleRec?.lines || '';
+  const sigSilhouette = sigStyleRec?.silhouette || '';
+  const sigLengths = sigStyleRec?.lengths || '';
+  const sigFabrics = sigStyleRec?.fabrics || '';
+  const sigAvoid = sigStyleRec?.avoid || '';
   const patterns =
-    rec?.patterns?.bestPatterns ||
-    (typeof rec?.signatureStyle?.patterns === 'string'
-      ? rec.signatureStyle.patterns.split(/,\s*/).filter(Boolean)
+    intRec?.patterns?.bestPatterns ||
+    (typeof sigStyleRec?.patterns === 'string'
+      ? sigStyleRec.patterns.split(/,\s*/).filter(Boolean)
       : []);
-  const jewelry = rec?.jewelryAndAccessories;
+  const jewelry = topRec?.jewelry || intRec?.jewelryAndAccessories;
 
   // ── Celebrity matches ─────────────────────────────────────────
   const celebrityMatches = la?.celebrityMatches || [];
@@ -82,7 +106,9 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Я пройшла аналіз у GlowKvitne! Мій стиль-тип: ${styleType}`,
+        message: `Я пройшла аналіз у GlowKvitne! Мій стиль-тип: ${styleType}${
+          colorSeasonPrimary ? `, колірний сезон: ${colorSeasonPrimary}` : ''
+        }`,
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -118,45 +144,201 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
           <Text style={styles.sectionTitle}>✨ LARSON STYLE TYPE</Text>
           <View style={styles.resultCard}>
             <Text style={styles.resultType}>{styleType.toUpperCase()}</Text>
+            {(!!primaryType || !!secondaryType) && (
+              <View style={[styles.tagsRow, { marginBottom: 8 }]}>
+                {!!primaryType && (
+                  <View style={[styles.tag, styles.tagGold]}>
+                    <Text style={styles.tagText}>Primary: {primaryType}</Text>
+                  </View>
+                )}
+                {!!secondaryType && (
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>
+                      Secondary: {secondaryType}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
             <View style={styles.confidenceBadge}>
               <Text style={styles.confidenceText}>
-                Впевненість: {Math.round(dominantScore * 100)}%
+                Домінуючий тип: {Math.round(dominantScore * 100)}%
               </Text>
             </View>
 
-            {/* Confidence bars */}
+            {/* Type Score bars */}
             <View style={{ marginTop: 16 }}>
               {Object.entries(confidence).map(([key, val]: [string, any]) => {
                 const score =
                   typeof val === 'object' ? val.score ?? 0 : val ?? 0;
+                const traits: string[] =
+                  typeof val === 'object' ? val.matchingTraits || [] : [];
                 return (
-                  <View key={key} style={styles.barRow}>
-                    <Text style={styles.barLabel}>{key}</Text>
-                    <View style={styles.barTrack}>
-                      <View
-                        style={[
-                          styles.barFill,
-                          { width: `${score * 100}%` as any },
-                        ]}
-                      />
+                  <View key={key} style={{ marginBottom: 10 }}>
+                    <View style={styles.barRow}>
+                      <Text style={styles.barLabel}>{key}</Text>
+                      <View style={styles.barTrack}>
+                        <View
+                          style={[
+                            styles.barFill,
+                            { width: `${score * 100}%` as any },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.barPct}>
+                        {Math.round(score * 100)}%
+                      </Text>
                     </View>
-                    <Text style={styles.barPct}>
-                      {Math.round(score * 100)}%
-                    </Text>
+                    {traits.length > 0 && (
+                      <Text style={styles.traitsMiniText}>
+                        {traits.join(' · ')}
+                      </Text>
+                    )}
                   </View>
                 );
               })}
             </View>
+
+            {/* Dominant Traits */}
+            {dominantTraits && (
+              <View style={{ marginTop: 12 }}>
+                {dominantTraits.face?.length > 0 && (
+                  <View style={styles.traitsSection}>
+                    <Text style={styles.traitsSectionTitle}>
+                      😊 Риси обличчя
+                    </Text>
+                    <View style={styles.tagsRow}>
+                      {dominantTraits.face.map((t: string, i: number) => (
+                        <View key={i} style={styles.traitTag}>
+                          <Text style={styles.traitTagText}>{t}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+                {dominantTraits.body?.length > 0 && (
+                  <View style={styles.traitsSection}>
+                    <Text style={styles.traitsSectionTitle}>🧍 Тіло</Text>
+                    <View style={styles.tagsRow}>
+                      {dominantTraits.body.map((t: string, i: number) => (
+                        <View key={i} style={styles.traitTag}>
+                          <Text style={styles.traitTagText}>{t}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+                {!!dominantTraits.mostRepeatedFeatures && (
+                  <Text
+                    style={[
+                      styles.reasonText,
+                      { marginTop: 8, fontStyle: 'italic' },
+                    ]}
+                  >
+                    {dominantTraits.mostRepeatedFeatures}
+                  </Text>
+                )}
+              </View>
+            )}
+
+            {/* Style reasoning */}
+            {!!styleReasoning && (
+              <Text style={[styles.reasonText, { marginTop: 12 }]}>
+                {styleReasoning}
+              </Text>
+            )}
 
             {/* Signature style */}
             {!!sigStyle && (
               <View style={styles.sigStyleBox}>
                 <Text style={styles.sigStyleLabel}>Ваш стиль:</Text>
                 <Text style={styles.sigStyleText}>{sigStyle}</Text>
+                {!!sigLines && (
+                  <Text style={[styles.sigStyleText, { marginTop: 6 }]}>
+                    📐 {sigLines}
+                  </Text>
+                )}
+                {!!sigSilhouette && (
+                  <Text style={[styles.sigStyleText, { marginTop: 6 }]}>
+                    👗 {sigSilhouette}
+                  </Text>
+                )}
+                {!!sigLengths && (
+                  <Text style={[styles.sigStyleText, { marginTop: 6 }]}>
+                    📏 {sigLengths}
+                  </Text>
+                )}
+                {!!sigFabrics && (
+                  <Text style={[styles.sigStyleText, { marginTop: 6 }]}>
+                    🧵 {sigFabrics}
+                  </Text>
+                )}
+                {!!sigAvoid && (
+                  <Text
+                    style={[
+                      styles.sigStyleText,
+                      { marginTop: 6, color: '#E57373' },
+                    ]}
+                  >
+                    ❌ Уникати: {sigAvoid}
+                  </Text>
+                )}
               </View>
             )}
           </View>
         </View>
+
+        {/* ── Color Season ── */}
+        {!!colorSeasonPrimary && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>🌸 КОЛІРНИЙ СЕЗОН</Text>
+            <View style={styles.resultCard}>
+              <Text style={[styles.resultType, { fontSize: 22 }]}>
+                {colorSeasonPrimary}
+              </Text>
+              {!!colorSeasonSecondary && (
+                <Text
+                  style={[
+                    styles.reasonText,
+                    { fontWeight: '600', marginTop: 4 },
+                  ]}
+                >
+                  Також: {colorSeasonSecondary}
+                </Text>
+              )}
+              <View style={[styles.tagsRow, { marginTop: 10 }]}>
+                {!!colorSeasonTemperature && (
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>
+                      {colorSeasonTemperature === 'cool'
+                        ? '❄️ Cool'
+                        : '☀️ Warm'}
+                    </Text>
+                  </View>
+                )}
+                {!!colorSeasonIntensity && (
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>
+                      Intensity: {colorSeasonIntensity}
+                    </Text>
+                  </View>
+                )}
+                {!!colorSeasonContrast && (
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>
+                      Contrast: {colorSeasonContrast}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              {!!colorSeasonReasoning && (
+                <Text style={[styles.reasonText, { marginTop: 12 }]}>
+                  {colorSeasonReasoning}
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* ── Value & Chroma ── */}
         <View style={styles.section}>
@@ -193,6 +375,25 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
                 </View>
               )}
             </View>
+            {(!!skinLevel || !!hairLevel || !!eyeLevel) && (
+              <View style={[styles.tagsRow, { marginTop: 8 }]}>
+                {!!skinLevel && (
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>Шкіра: {skinLevel}</Text>
+                  </View>
+                )}
+                {!!hairLevel && (
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>Волосся: {hairLevel}</Text>
+                  </View>
+                )}
+                {!!eyeLevel && (
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>Очі: {eyeLevel}</Text>
+                  </View>
+                )}
+              </View>
+            )}
             {!!chromaReason && (
               <Text style={styles.reasonText}>{chromaReason}</Text>
             )}
@@ -208,7 +409,7 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
                 <>
                   <Text style={styles.paletteSubtitle}>Базові кольори</Text>
                   <View style={styles.colorRowFull}>
-                    {neutralColors.map((color, index) => {
+                    {neutralColors.map((color: string, index: number) => {
                       const hex =
                         (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
                       return (
@@ -233,7 +434,7 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
                     Акцентні кольори
                   </Text>
                   <View style={styles.colorRowFull}>
-                    {accentColors.map((color, index) => {
+                    {accentColors.map((color: string, index: number) => {
                       const hex =
                         (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
                       return (
@@ -245,6 +446,62 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
                             ]}
                           />
                           <Text style={styles.colorHexText}>{hex}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              {whiteColors.length > 0 && (
+                <>
+                  <Text style={styles.paletteSubtitleWithMargin}>
+                    Білі відтінки
+                  </Text>
+                  <View style={styles.colorRowFull}>
+                    {whiteColors.map((color: string, index: number) => {
+                      const hex =
+                        (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
+                      return (
+                        <View key={index} style={styles.colorSwatchItem}>
+                          <View
+                            style={[
+                              styles.colorCircle,
+                              { backgroundColor: hex, borderColor: '#DDD' },
+                            ]}
+                          />
+                          <Text style={styles.colorHexText}>{hex}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              {blackColors.length > 0 && (
+                <>
+                  <Text style={styles.paletteSubtitleWithMargin}>
+                    Темні відтінки
+                  </Text>
+                  <View style={styles.colorRowFull}>
+                    {blackColors.map((color: string, index: number) => {
+                      const hex =
+                        (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
+                      const desc = color
+                        .replace(/#[0-9A-Fa-f]{3,6}\s*/g, '')
+                        .trim();
+                      return (
+                        <View key={index} style={styles.colorSwatchItem}>
+                          <View
+                            style={[
+                              styles.colorCircle,
+                              { backgroundColor: hex },
+                            ]}
+                          />
+                          <Text style={styles.colorHexText}>{hex}</Text>
+                          {!!desc && (
+                            <Text style={styles.colorDescText}>{desc}</Text>
+                          )}
                         </View>
                       );
                     })}
@@ -267,7 +524,7 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
             <Text style={styles.sectionTitle}>❌ УНИКАЙТЕ</Text>
             <View style={styles.paletteCard}>
               <View style={styles.colorRowFull}>
-                {avoidColors.map((color, index) => {
+                {avoidColors.map((color: string, index: number) => {
                   const hex =
                     (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
                   return (
@@ -336,6 +593,11 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>💄 МАКІЯЖ</Text>
             <View style={styles.tipsCard}>
+              {!!makeupRecs.makeupStyle && (
+                <Text style={[styles.reasonText, { marginBottom: 12 }]}>
+                  {makeupRecs.makeupStyle}
+                </Text>
+              )}
               {makeupRecs.lipColors?.length > 0 && (
                 <ColorTipRow label="Губи" colors={makeupRecs.lipColors} />
               )}
@@ -344,6 +606,12 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
               )}
               {makeupRecs.blushColors?.length > 0 && (
                 <ColorTipRow label="Рум'яна" colors={makeupRecs.blushColors} />
+              )}
+              {!!makeupRecs.foundationUndertone && (
+                <TipItem
+                  label="Тональний"
+                  value={`Undertone: ${makeupRecs.foundationUndertone}`}
+                />
               )}
             </View>
           </View>
@@ -389,13 +657,14 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
                   </View>
                 </>
               )}
-              {hairRecs.styles?.length > 0 && (
+              {(hairRecs.styles?.length > 0 || hairRecs.recommendedStyles) && (
                 <TipItem
                   label="Стиль"
                   value={
-                    Array.isArray(hairRecs.styles)
+                    hairRecs.recommendedStyles ||
+                    (Array.isArray(hairRecs.styles)
                       ? hairRecs.styles.join(' ')
-                      : hairRecs.styles
+                      : hairRecs.styles)
                   }
                 />
               )}
@@ -414,11 +683,19 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
               {!!jewelry.metals && (
                 <TipItem label="Метали" value={jewelry.metals} />
               )}
-              {!!jewelry.sizes && (
-                <TipItem label="Розмір" value={jewelry.sizes} />
+              {!!(jewelry.sizes || jewelry.size) && (
+                <TipItem label="Розмір" value={jewelry.sizes || jewelry.size} />
               )}
-              {!!jewelry.styles && (
-                <TipItem label="Стиль" value={jewelry.styles} />
+              {!!(jewelry.styles || jewelry.style) && (
+                <TipItem
+                  label="Стиль"
+                  value={jewelry.styles || jewelry.style}
+                />
+              )}
+              {!!jewelry.recommendation && (
+                <Text style={[styles.reasonText, { marginTop: 8 }]}>
+                  {jewelry.recommendation}
+                </Text>
               )}
             </View>
           </View>
@@ -583,6 +860,31 @@ const styles = StyleSheet.create({
     color: '#666',
     textTransform: 'capitalize',
   },
+  traitsMiniText: {
+    fontSize: 11,
+    color: '#aaa',
+    marginLeft: 78,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  traitsSection: { marginBottom: 10, marginTop: 4 },
+  traitsSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#999',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  traitTag: {
+    backgroundColor: '#F5F0FF',
+    borderWidth: 1,
+    borderColor: '#D4B8FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  traitTagText: { fontSize: 11, color: '#7B5EA7' },
   barTrack: {
     flex: 1,
     height: 6,

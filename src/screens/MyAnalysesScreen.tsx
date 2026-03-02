@@ -32,7 +32,8 @@ const MyAnalysesScreen: React.FC<NavigationProps> = ({ navigation }) => {
     try {
       const response = await getUserAnalyses();
       console.log('Loaded analyses:', response);
-      setAnalyses(response.analyses);
+      // API may return { analyses: [...] } or an array directly
+      setAnalyses(response.analyses || response || []);
     } catch (error: any) {
       console.error('Load analyses error:', error);
       Alert.alert('Помилка', error.message || 'Не вдалося завантажити аналізи');
@@ -60,7 +61,14 @@ const MyAnalysesScreen: React.FC<NavigationProps> = ({ navigation }) => {
         onPress: async () => {
           try {
             await deleteAnalysis(analysisId);
-            setAnalyses(prev => prev.filter(a => a._id !== analysisId));
+            setAnalyses(prev =>
+              prev.filter(a => {
+                const aa: any = a;
+                const aid =
+                  typeof aa._id === 'string' ? aa._id : aa._id?.$oid || aa._id;
+                return aid !== analysisId;
+              }),
+            );
             Alert.alert('Успіх', 'Аналіз видалено');
           } catch (error: any) {
             Alert.alert('Помилка', error.message);
@@ -70,22 +78,38 @@ const MyAnalysesScreen: React.FC<NavigationProps> = ({ navigation }) => {
     ]);
   };
 
-  const renderAnalysis = ({ item }: { item: Analysis }) => {
+  const renderAnalysis = ({ item }: { item: any }) => {
     console.log(item);
-    const colorType = item.larsonAnalysis?.seasonalType?.primary || 'Unknown';
-    const kibbeType = item.kibbeAnalysis?.kibbeType?.result;
-    const date = new Date(item.createdAt).toLocaleDateString('uk-UA', {
+    // normalize id (could be string or object {$oid: ...})
+    const id =
+      typeof item._id === 'string'
+        ? item._id
+        : item._id?.$oid || item._id || '';
+
+    const styleName =
+      item.larsonAnalysis?.styleType?.blendName ||
+      item.larsonAnalysis?.styleType?.primaryType ||
+      '';
+
+    const season = item.colorSeason?.primary || '';
+
+    const rawDate =
+      item.createdAt?.$date || item.createdAt || new Date().toISOString();
+    const date = new Date(rawDate).toLocaleDateString('uk-UA', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
     });
 
-    const statusEmoji = {
-      pending: '⏳',
-      processing: '🔄',
-      completed: '✅',
-      failed: '❌',
-    }[item.status];
+    const status = item.status || '';
+    const statusEmoji = (
+      {
+        pending: '⏳',
+        processing: '🔄',
+        completed: '✅',
+        failed: '❌',
+      } as any
+    )[status];
 
     return (
       <TouchableOpacity
@@ -125,7 +149,7 @@ const MyAnalysesScreen: React.FC<NavigationProps> = ({ navigation }) => {
         <View style={styles.analysisInfo}>
           <View style={styles.header}>
             <Text style={styles.colorType}>
-              {statusEmoji} {colorType}
+              {statusEmoji} {styleName || season || 'Аналіз'}
             </Text>
             {item.tier && (
               <View
@@ -141,10 +165,6 @@ const MyAnalysesScreen: React.FC<NavigationProps> = ({ navigation }) => {
             )}
           </View>
 
-          {kibbeType && (
-            <Text style={styles.kibbeType}>Kibbe: {kibbeType}</Text>
-          )}
-
           <Text style={styles.date}>{date}</Text>
 
           {item.status === 'failed' && item.error && (
@@ -154,7 +174,7 @@ const MyAnalysesScreen: React.FC<NavigationProps> = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.deleteButton}
-          onPress={() => handleDelete(item._id)}
+          onPress={() => handleDelete(id)}
         >
           <Text style={styles.deleteButtonText}>🗑️</Text>
         </TouchableOpacity>
@@ -198,7 +218,11 @@ const MyAnalysesScreen: React.FC<NavigationProps> = ({ navigation }) => {
       <FlatList
         data={analyses}
         renderItem={renderAnalysis}
-        keyExtractor={item => item._id}
+        keyExtractor={(item: any) =>
+          typeof item._id === 'string'
+            ? item._id
+            : item._id?.$oid || String(item._id)
+        }
         contentContainerStyle={styles.listContainer}
         refreshControl={
           <RefreshControl
@@ -343,11 +367,6 @@ const styles = StyleSheet.create({
   tierText: {
     fontSize: 12,
     fontWeight: '600',
-  },
-  kibbeType: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
   },
   date: {
     fontSize: 12,

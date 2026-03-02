@@ -59,11 +59,6 @@ const WelcomeScreen = ({ navigation }: WelcomeScreenProps) => {
             description="Визначення твого унікального колоротипу"
           />
           <FeatureItem
-            icon="👗"
-            title="Kibbe Body Type"
-            description="Підбір ідеальних силуетів для твоєї фігури"
-          />
-          <FeatureItem
             icon="⭐"
             title="Celebrity Twins"
             description="Знайди свого знаменитого двійника"

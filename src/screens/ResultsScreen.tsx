@@ -8,12 +8,11 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { AnalysisResult } from '../types/analysis';
 
 type RootStackParamList = {
   Home: undefined;
   PhotoUpload: undefined;
-  Results: { analysisResult: AnalysisResult };
+  Results: { analysisResult: any };
 };
 
 type ResultsScreenProps = {
@@ -26,126 +25,232 @@ export default function ResultsScreen({
   route,
 }: ResultsScreenProps) {
   const { analysisResult } = route.params;
-  const { larsonAnalysis, kibbeAnalysis, integratedRecommendations } =
-    analysisResult;
+  const la = analysisResult?.larsonAnalysis || {};
+  const colorSeason = analysisResult?.colorSeason || {};
+  const rec = analysisResult?.recommendations || {};
+  const styleType = la?.styleType || {};
+  const colorPalette = la?.colorPalette?.bestColors || {};
+  const celebrityMatches: any[] = la?.celebrityMatches || [];
+  const archetype = la?.archetypeAnalysis;
+
+  const neutrals: string[] = colorPalette.neutrals || [];
+  const accents: string[] = colorPalette.accents || [];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.mainTitle}>Твої Результати</Text>
 
-      {/* Larson Color Analysis */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>🎨 Larson Color Analysis</Text>
+      {/* Color Season */}
+      {!!colorSeason.primary && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🌸 Колірний Сезон</Text>
 
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Колоротип</Text>
-          <Text style={styles.cardValue}>
-            {larsonAnalysis.seasonalType.primary}
-          </Text>
-          <Text style={styles.confidence}>
-            Впевненість: {larsonAnalysis.seasonalType.confidence}
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Undertone</Text>
-          <Text style={styles.cardValue}>
-            {larsonAnalysis.undertone.result === 'cool'
-              ? '❄️ Cool (Холодний)'
-              : larsonAnalysis.undertone.result === 'warm'
-              ? '☀️ Warm (Теплий)'
-              : '⚖️ Neutral (Нейтральний)'}
-          </Text>
-          <Text style={styles.confidence}>
-            {larsonAnalysis.undertone.confidence}
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Твої кращі кольори</Text>
-          <View style={styles.colorPalette}>
-            {larsonAnalysis.colorPalette.bestColors.neutrals
-              .slice(0, 5)
-              .map((color, index) => (
-                <View
-                  key={index}
-                  style={[styles.colorBox, { backgroundColor: color }]}
-                />
-              ))}
-          </View>
-          <Text style={styles.colorLabel}>Нейтральні</Text>
-
-          <View style={styles.colorPalette}>
-            {larsonAnalysis.colorPalette.bestColors.accents
-              .slice(0, 5)
-              .map((color, index) => (
-                <View
-                  key={index}
-                  style={[styles.colorBox, { backgroundColor: color }]}
-                />
-              ))}
-          </View>
-          <Text style={styles.colorLabel}>Акценти</Text>
-
-          <Text style={styles.metalInfo}>
-            Метали: {larsonAnalysis.colorPalette.bestColors.metals}
-          </Text>
-        </View>
-      </View>
-
-      {/* Kibbe Body Type */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>👗 Kibbe Body Type</Text>
-
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Тип фігури</Text>
-          <Text style={styles.cardValue}>
-            {kibbeAnalysis.kibbeType.result ||
-              kibbeAnalysis.kibbeType.preliminaryResult}
-          </Text>
-          <Text style={styles.confidence}>
-            Впевненість: {kibbeAnalysis.kibbeType.confidence}
-          </Text>
-
-          {kibbeAnalysis.kibbeType.preliminaryResult && (
-            <Text style={styles.warningText}>
-              ⚠️ Попередній результат. Для точності потрібне фото в повний ріст
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Рекомендовані силуети</Text>
-          {kibbeAnalysis.styleRecommendations.silhouettes
-            .slice(0, 3)
-            .map((silhouette, index) => (
-              <Text key={index} style={styles.listItem}>
-                • {silhouette}
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Основний сезон</Text>
+            <Text style={styles.cardValue}>{colorSeason.primary}</Text>
+            {!!colorSeason.secondary && (
+              <Text style={styles.confidence}>
+                Також: {colorSeason.secondary}
               </Text>
-            ))}
+            )}
+            <View style={styles.tagsRow}>
+              {!!colorSeason.temperature && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>
+                    {colorSeason.temperature === 'cool' ? '❄️ Cool' : '☀️ Warm'}
+                  </Text>
+                </View>
+              )}
+              {!!colorSeason.intensity && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>{colorSeason.intensity}</Text>
+                </View>
+              )}
+              {!!colorSeason.contrast && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>
+                    Contrast: {colorSeason.contrast}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {!!colorSeason.reasoning && (
+              <Text style={[styles.description, { marginTop: 10 }]}>
+                {colorSeason.reasoning}
+              </Text>
+            )}
+          </View>
         </View>
+      )}
 
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Тканини</Text>
-          <Text style={styles.description}>
-            {kibbeAnalysis.styleRecommendations.fabrics}
-          </Text>
+      {/* Larson Style Type */}
+      {!!(styleType.blendName || styleType.primaryType) && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>✨ Larson Style Type</Text>
+
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Стиль-тип</Text>
+            <Text style={styles.cardValue}>
+              {styleType.blendName || styleType.primaryType}
+            </Text>
+            {(!!styleType.primaryType || !!styleType.secondaryType) && (
+              <View style={styles.tagsRow}>
+                {!!styleType.primaryType && (
+                  <View style={[styles.tag, { backgroundColor: '#EEE8FF' }]}>
+                    <Text style={[styles.tagText, { color: '#7B5EA7' }]}>
+                      Primary: {styleType.primaryType}
+                    </Text>
+                  </View>
+                )}
+                {!!styleType.secondaryType && (
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>
+                      Secondary: {styleType.secondaryType}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Type Scores */}
+            {!!styleType.typeScores && (
+              <View style={{ marginTop: 12 }}>
+                {Object.entries(styleType.typeScores).map(
+                  ([key, val]: [string, any]) => {
+                    const score =
+                      typeof val === 'object' ? val.score ?? 0 : val ?? 0;
+                    return (
+                      <View key={key} style={styles.barRow}>
+                        <Text style={styles.barLabel}>{key}</Text>
+                        <View style={styles.barTrack}>
+                          <View
+                            style={[
+                              styles.barFill,
+                              { width: `${score * 100}%` as any },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.barPct}>
+                          {Math.round(score * 100)}%
+                        </Text>
+                      </View>
+                    );
+                  },
+                )}
+              </View>
+            )}
+
+            {/* Dominant Traits */}
+            {styleType.dominantTraits?.face?.length > 0 && (
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.traitTitle}>😊 Риси обличчя</Text>
+                {styleType.dominantTraits.face.map((t: string, i: number) => (
+                  <Text key={i} style={styles.listItem}>
+                    • {t}
+                  </Text>
+                ))}
+              </View>
+            )}
+            {styleType.dominantTraits?.body?.length > 0 && (
+              <View style={{ marginTop: 8 }}>
+                <Text style={styles.traitTitle}>🧍 Тіло</Text>
+                {styleType.dominantTraits.body.map((t: string, i: number) => (
+                  <Text key={i} style={styles.listItem}>
+                    • {t}
+                  </Text>
+                ))}
+              </View>
+            )}
+          </View>
         </View>
-      </View>
+      )}
+
+      {/* Color Palette */}
+      {(neutrals.length > 0 || accents.length > 0) && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🎨 Ваша Палітра</Text>
+
+          <View style={styles.card}>
+            {neutrals.length > 0 && (
+              <>
+                <Text style={styles.cardLabel}>Базові кольори</Text>
+                <View style={styles.colorPalette}>
+                  {neutrals.slice(0, 5).map((color: string, index: number) => {
+                    const hex =
+                      (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
+                    return (
+                      <View
+                        key={index}
+                        style={[styles.colorBox, { backgroundColor: hex }]}
+                      />
+                    );
+                  })}
+                </View>
+              </>
+            )}
+            {accents.length > 0 && (
+              <>
+                <Text style={[styles.colorLabel, { marginTop: 10 }]}>
+                  Акцентні кольори
+                </Text>
+                <View style={styles.colorPalette}>
+                  {accents.slice(0, 5).map((color: string, index: number) => {
+                    const hex =
+                      (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
+                    return (
+                      <View
+                        key={index}
+                        style={[styles.colorBox, { backgroundColor: hex }]}
+                      />
+                    );
+                  })}
+                </View>
+              </>
+            )}
+            {!!colorPalette.metals && (
+              <Text style={styles.metalInfo}>
+                Метали: {colorPalette.metals}
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Archetype */}
+      {!!archetype?.blendName && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>✨ Архетип</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardValue}>{archetype.blendName}</Text>
+            {!!archetype.primaryEssence?.name && (
+              <Text style={styles.confidence}>
+                {archetype.primaryEssence.percentage}%{' '}
+                {archetype.primaryEssence.name}
+              </Text>
+            )}
+            {archetype.styleKeywords?.length > 0 && (
+              <View style={[styles.tagsRow, { marginTop: 8 }]}>
+                {archetype.styleKeywords.map((kw: string, i: number) => (
+                  <View key={i} style={styles.tag}>
+                    <Text style={styles.tagText}>{kw}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* Celebrity Twins */}
-      {integratedRecommendations.celebrityTwins.length > 0 && (
+      {celebrityMatches.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>⭐ Твої Celebrity Twins</Text>
 
-          {integratedRecommendations.celebrityTwins.map((celebrity, index) => (
+          {celebrityMatches.map((celebrity: any, index: number) => (
             <View key={index} style={styles.celebrityCard}>
               <Text style={styles.celebrityName}>{celebrity.name}</Text>
               <Text style={styles.similarityBadge}>
                 {celebrity.similarity}% схожість
-              </Text>
-              <Text style={styles.celebrityInfo}>
-                {celebrity.larsonType} × {celebrity.kibbeType}
               </Text>
               <Text style={styles.matchReason}>{celebrity.matchReason}</Text>
             </View>
@@ -153,39 +258,159 @@ export default function ResultsScreen({
         </View>
       )}
 
-      {/* Style Recommendations */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>💄 Makeup Recommendations</Text>
+      {/* Makeup & Hair Recommendations */}
+      {(rec.makeup || rec.hair) && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>💄 Рекомендації</Text>
 
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Губи</Text>
-          <View style={styles.colorPalette}>
-            {integratedRecommendations.makeup.lipColors
-              .slice(0, 5)
-              .map((color, index) => {
-                const hexMatch = color.match(/#[0-9A-Fa-f]{6}/);
-                const hex = hexMatch ? hexMatch[0] : '#ccc';
-                return (
-                  <View
-                    key={index}
-                    style={[styles.colorBox, { backgroundColor: hex }]}
-                  />
-                );
-              })}
+          {rec.makeup && (
+            <View style={styles.card}>
+              {!!rec.makeup.makeupStyle && (
+                <Text style={[styles.description, { marginBottom: 10 }]}>
+                  {rec.makeup.makeupStyle}
+                </Text>
+              )}
+              {rec.makeup.lipColors?.length > 0 && (
+                <>
+                  <Text style={styles.cardLabel}>Губи</Text>
+                  <View style={styles.colorPalette}>
+                    {rec.makeup.lipColors
+                      .slice(0, 5)
+                      .map((color: string, index: number) => {
+                        const hex =
+                          (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] ||
+                          '#ccc';
+                        return (
+                          <View
+                            key={index}
+                            style={[styles.colorBox, { backgroundColor: hex }]}
+                          />
+                        );
+                      })}
+                  </View>
+                </>
+              )}
+              {rec.makeup.eyeColors?.length > 0 && (
+                <>
+                  <Text style={styles.cardLabel}>Очі</Text>
+                  <View style={styles.colorPalette}>
+                    {rec.makeup.eyeColors
+                      .slice(0, 5)
+                      .map((color: string, index: number) => {
+                        const hex =
+                          (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] ||
+                          '#ccc';
+                        return (
+                          <View
+                            key={index}
+                            style={[styles.colorBox, { backgroundColor: hex }]}
+                          />
+                        );
+                      })}
+                  </View>
+                </>
+              )}
+            </View>
+          )}
+
+          {rec.hair && (
+            <View style={styles.card}>
+              <Text style={styles.cardLabel}>Волосся</Text>
+              {rec.hair.colors
+                ?.slice(0, 4)
+                .map((color: string, index: number) => (
+                  <Text key={index} style={styles.listItem}>
+                    • {color}
+                  </Text>
+                ))}
+              {!!(
+                rec.hair.recommendedStyles ||
+                (rec.hair.styles && Array.isArray(rec.hair.styles))
+              ) && (
+                <Text style={[styles.description, { marginTop: 8 }]}>
+                  {rec.hair.recommendedStyles ||
+                    (Array.isArray(rec.hair.styles)
+                      ? rec.hair.styles.join(' ')
+                      : rec.hair.styles)}
+                </Text>
+              )}
+              {!!rec.hair.avoid && (
+                <Text
+                  style={[
+                    styles.description,
+                    { marginTop: 8, color: '#E57373' },
+                  ]}
+                >
+                  ❌ Уникати: {rec.hair.avoid}
+                </Text>
+              )}
+            </View>
+          )}
+
+          {rec.jewelry && (
+            <View style={styles.card}>
+              <Text style={styles.cardLabel}>Прикраси</Text>
+              {!!rec.jewelry.metals && (
+                <Text style={styles.listItem}>
+                  Метали: {rec.jewelry.metals}
+                </Text>
+              )}
+              {!!(rec.jewelry.size || rec.jewelry.sizes) && (
+                <Text style={styles.listItem}>
+                  Розмір: {rec.jewelry.size || rec.jewelry.sizes}
+                </Text>
+              )}
+              {!!(rec.jewelry.style || rec.jewelry.styles) && (
+                <Text style={styles.listItem}>
+                  Стиль: {rec.jewelry.style || rec.jewelry.styles}
+                </Text>
+              )}
+              {!!rec.jewelry.recommendation && (
+                <Text style={[styles.description, { marginTop: 8 }]}>
+                  {rec.jewelry.recommendation}
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Signature Style */}
+      {!!rec.signatureStyle?.description && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>👗 Стиль Образу</Text>
+          <View style={styles.card}>
+            <Text style={styles.description}>
+              {rec.signatureStyle.description}
+            </Text>
+            {!!rec.signatureStyle.lines && (
+              <Text style={[styles.listItem, { marginTop: 8 }]}>
+                📐 {rec.signatureStyle.lines}
+              </Text>
+            )}
+            {!!rec.signatureStyle.silhouette && (
+              <Text style={styles.listItem}>
+                👗 {rec.signatureStyle.silhouette}
+              </Text>
+            )}
+            {!!rec.signatureStyle.lengths && (
+              <Text style={styles.listItem}>
+                📏 {rec.signatureStyle.lengths}
+              </Text>
+            )}
+            {!!rec.signatureStyle.fabrics && (
+              <Text style={styles.listItem}>
+                🧵 {rec.signatureStyle.fabrics}
+              </Text>
+            )}
+            {!!rec.signatureStyle.avoid && (
+              <Text style={[styles.listItem, { color: '#E57373' }]}>
+                ❌ Уникати: {rec.signatureStyle.avoid}
+              </Text>
+            )}
           </View>
         </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Волосся</Text>
-          {integratedRecommendations.hair.colors
-            .slice(0, 3)
-            .map((color, index) => (
-              <Text key={index} style={styles.listItem}>
-                • {color}
-              </Text>
-            ))}
-        </View>
-      </View>
+      )}
 
       {/* Actions */}
       <View style={styles.actions}>
@@ -335,6 +560,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#444',
     lineHeight: 20,
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  tag: {
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  tagText: {
+    fontSize: 12,
+    color: '#555',
+    textTransform: 'capitalize',
+  },
+  barRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  barLabel: {
+    width: 70,
+    fontSize: 12,
+    color: '#666',
+    textTransform: 'capitalize',
+  },
+  barTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginHorizontal: 8,
+  },
+  barFill: {
+    height: '100%' as any,
+    backgroundColor: '#667eea',
+    borderRadius: 3,
+  },
+  barPct: {
+    width: 36,
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'right',
+  },
+  traitTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 4,
   },
   actions: {
     marginTop: 20,

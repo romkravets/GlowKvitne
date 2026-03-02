@@ -106,7 +106,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Fetch user data from backend
   const fetchUserData = async (firebaseUser: FirebaseAuthTypes.User) => {
     try {
-      const token = await firebaseUser.getIdToken();
+      // Використовуємо сучасний модульний синтаксис RNFirebase
+      const token = await getAuth().currentUser?.getIdToken();
+      if (!token) throw new Error('Не вдалося отримати токен користувача');
       await AsyncStorage.setItem('authToken', token);
 
       // Try to get user data from backend
