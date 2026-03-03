@@ -90,16 +90,60 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Setup axios interceptor for auth token
   useEffect(() => {
-    const interceptor = axios.interceptors.request.use(async config => {
+    const reqInterceptor = axios.interceptors.request.use(async config => {
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
+        config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${token}`;
       }
       return config;
     });
 
+    const resInterceptor = axios.interceptors.response.use(
+      res => res,
+      async error => {
+        const originalRequest = error.config;
+
+        // If unauthorized and we haven't retried yet, try to refresh the ID token
+        if (
+          error.response?.status === 401 &&
+          originalRequest &&
+          !originalRequest._retry
+        ) {
+          originalRequest._retry = true;
+          try {
+            const auth = getAuth();
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+              // No logged in user — clear stored token and propagate error
+              await AsyncStorage.removeItem('authToken');
+              return Promise.reject(error);
+            }
+
+            // Force refresh token
+            const freshToken = await currentUser.getIdToken(true);
+            if (freshToken) {
+              await AsyncStorage.setItem('authToken', freshToken);
+              // Update headers for the failed request and default headers
+              originalRequest.headers = originalRequest.headers || {};
+              originalRequest.headers.Authorization = `Bearer ${freshToken}`;
+              axios.defaults.headers.common['Authorization'] = `Bearer ${freshToken}`;
+              return axios(originalRequest);
+            }
+          } catch (refreshError) {
+            // Refresh failed — remove token and let caller handle auth flow
+            await AsyncStorage.removeItem('authToken');
+            return Promise.reject(error);
+          }
+        }
+
+        return Promise.reject(error);
+      },
+    );
+
     return () => {
-      axios.interceptors.request.eject(interceptor);
+      axios.interceptors.request.eject(reqInterceptor);
+      axios.interceptors.response.eject(resInterceptor);
     };
   }, []);
 
