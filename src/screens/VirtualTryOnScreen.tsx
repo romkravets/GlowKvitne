@@ -16,6 +16,7 @@ import {
   Alert,
   Dimensions,
   Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -23,12 +24,17 @@ import {
   launchCamera,
   ImagePickerResponse,
 } from 'react-native-image-picker';
-import { NavigationProps } from '../navigation/types';
 import { virtualTryOn } from '../api/analysisApi';
 
 const { width } = Dimensions.get('window');
 
-// ── Категорії та опції ──────────────────────────────────────────────────────
+// Типи для опцій і категорій
+type TryOnOption = {
+  id: string;
+  label: string;
+  prompt: string;
+  preview?: string; // hex або назва кольору для відображення
+};
 
 type Category = {
   id: string;
@@ -37,12 +43,7 @@ type Category = {
   options: TryOnOption[];
 };
 
-type TryOnOption = {
-  id: string;
-  label: string;
-  prompt: string;
-  preview?: string; // hex або назва кольору для відображення
-};
+type NavigationProps = { navigation: any; route?: any };
 
 const CATEGORIES: Category[] = [
   {
@@ -326,39 +327,57 @@ const VirtualTryOnScreen: React.FC<NavigationProps> = ({
 
   // ── Вибір фото ──────────────────────────────────────────────────────────
 
-  const pickFromGallery = () => {
+  const pickFromGallery = async () => {
     setShowPhotoMenu(false);
-    launchImageLibrary(
-      {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    try {
+      const response = await launchImageLibrary({
         mediaType: 'photo',
         quality: 0.9,
         includeBase64: true,
         maxWidth: 1024,
         maxHeight: 1024,
-      },
-      handleImageResponse,
-    );
+      });
+      handleImageResponse(response as ImagePickerResponse);
+    } catch (e) {
+      // ignore or log if needed
+    }
   };
 
-  const pickFromCamera = () => {
+  const pickFromCamera = async () => {
     setShowPhotoMenu(false);
-    launchCamera(
-      {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    try {
+      const response = await launchCamera({
         mediaType: 'photo',
         quality: 0.9,
         includeBase64: true,
         maxWidth: 1024,
         maxHeight: 1024,
-      },
-      handleImageResponse,
-    );
+      });
+      handleImageResponse(response as ImagePickerResponse);
+    } catch (e) {
+      // ignore or log if needed
+    }
   };
 
-  const handleImageResponse = (response: ImagePickerResponse) => {
+  const handleImageResponse = (response: ImagePickerResponse | any) => {
+    if (!response) return;
     if (response.didCancel || response.errorCode) return;
+    // response may be either callback-style or promise-style
     const asset = response.assets?.[0];
-    if (!asset?.base64) return;
-    setSourceImage(asset.base64);
+    if (!asset) return;
+    if (asset.base64) {
+      setSourceImage(asset.base64);
+    } else if (asset.uri) {
+      // If base64 is not provided, try to use uri (data URI or remote)
+      // For now, if uri is a data URI, strip prefix; otherwise skip.
+      const uri: string = asset.uri as string;
+      if (uri.startsWith('data:')) {
+        const comma = uri.indexOf(',');
+        if (comma !== -1) setSourceImage(uri.slice(comma + 1));
+      }
+    }
     setResultImage(null);
     setCustomizationQueue([]);
   };
