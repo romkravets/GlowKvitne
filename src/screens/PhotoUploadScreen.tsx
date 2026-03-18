@@ -180,6 +180,8 @@ export default function PhotoUploadScreen({
       navigation.navigate('AnalysisLoading', {
         analysisId: response.analysisId,
       });
+
+      // Фото зберігаються бекендом у Firebase Storage після успішного аналізу.
     } catch (error: any) {
       // ── Обробка 403 з бекенду (подвійний захист) ────────────────
       if (error.response?.status === 403) {

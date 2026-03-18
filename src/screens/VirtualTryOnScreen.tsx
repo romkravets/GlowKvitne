@@ -24,7 +24,7 @@ import {
   launchCamera,
   ImagePickerResponse,
 } from 'react-native-image-picker';
-import { virtualTryOn } from '../api/analysisApi';
+import { virtualTryOn, saveTryOnResult } from '../api/analysisApi';
 
 const { width } = Dimensions.get('window');
 
@@ -320,6 +320,8 @@ const VirtualTryOnScreen: React.FC<NavigationProps> = ({
     null,
   );
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
   const [customizationQueue, setCustomizationQueue] = useState<TryOnOption[]>(
     [],
@@ -428,7 +430,9 @@ const VirtualTryOnScreen: React.FC<NavigationProps> = ({
         prompt: combinedPrompt,
       });
 
-      setResultImage(result.resultImageBase64 || result.resultImageUrl || null);
+      const image = result.resultImageBase64 || result.resultImageUrl || null;
+      setResultImage(image);
+      setSaved(false); // новий результат — скидаємо стан збереження
     } catch (error: any) {
       Alert.alert(
         'Помилка обробки',
@@ -436,6 +440,24 @@ const VirtualTryOnScreen: React.FC<NavigationProps> = ({
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Збереження результату у Firebase Storage (через backend) ────────────
+
+  const handleSaveResult = async () => {
+    if (!resultImage) return;
+
+    setSaving(true);
+    try {
+      await saveTryOnResult(resultImage);
+      setSaved(true);
+      Alert.alert('Збережено ✓', 'Результат збережено у вашому профілі.');
+    } catch (err: any) {
+      Alert.alert('Помилка', 'Не вдалося зберегти. Спробуйте ще раз.');
+      console.error('[TryOn/Save] error:', err);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -455,15 +477,27 @@ const VirtualTryOnScreen: React.FC<NavigationProps> = ({
         <View style={styles.headerRow}>
           <Text style={styles.title}>✨ Virtual Try-On</Text>
           {resultImage && (
-            <TouchableOpacity
-              style={styles.resetBtn}
-              onPress={() => {
-                setResultImage(null);
-                setCustomizationQueue([]);
-              }}
-            >
-              <Text style={styles.resetBtnText}>Скинути</Text>
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={[styles.saveBtn, saved && styles.saveBtnDone]}
+                onPress={handleSaveResult}
+                disabled={saving || saved}
+              >
+                <Text style={styles.saveBtnText}>
+                  {saving ? '…' : saved ? '✓ Збережено' : '💾 Зберегти'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.resetBtn}
+                onPress={() => {
+                  setResultImage(null);
+                  setCustomizationQueue([]);
+                  setSaved(false);
+                }}
+              >
+                <Text style={styles.resetBtnText}>Скинути</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
         <Text style={styles.subtitle}>
@@ -697,6 +731,21 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '700', color: '#1A1A1A' },
   subtitle: { fontSize: 14, color: '#888', marginBottom: 20, lineHeight: 20 },
 
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  saveBtn: {
+    backgroundColor: '#C49B63',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  saveBtnDone: {
+    backgroundColor: '#4CAF50',
+  },
+  saveBtnText: { fontSize: 13, color: '#FFF', fontWeight: '600' },
   resetBtn: {
     backgroundColor: '#F0F0F0',
     paddingHorizontal: 14,

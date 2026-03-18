@@ -408,3 +408,35 @@ export async function virtualTryOn(
 
   return response.data;
 }
+
+export interface SaveTryOnResponse {
+  saved: boolean;
+  path: string;
+  url: string;
+}
+
+/**
+ * Зберігає результат Virtual Try-On у Firebase Storage через backend.
+ * Backend (firebase-admin) виконує re-upload з Replicate CDN або base64.
+ * Повертає підписаний URL для перегляду (7 днів).
+ */
+export async function saveTryOnResult(
+  imageSource: string,
+): Promise<SaveTryOnResponse> {
+  const token = await getAuthToken();
+  if (!token) throw new Error('Необхідна авторизація');
+
+  const response = await axios.post<SaveTryOnResponse>(
+    `${API_CONFIG.baseURL}/api/virtual-tryon/save`,
+    { imageSource },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 60000,
+    },
+  );
+
+  return response.data;
+}
