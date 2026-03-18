@@ -1,0 +1,22 @@
+// Firebase Storage Security Rules
+// Деплой: firebase deploy --only storage
+//
+// Правила: кожен авторизований користувач має доступ тільки до своєї папки.
+// Бекенд (firebase-admin) має повний доступ незалежно від цих правил.
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Папка конкретного користувача — тільки він може читати та писати
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
+    }
+
+    // Всі інші шляхи — заборонено
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
