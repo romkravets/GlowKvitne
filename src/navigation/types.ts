@@ -78,6 +78,10 @@ export type ProfileStackParamList = {
   AnalysisResults: { analysisResult: AnalysisResult };
   AnalysisLoading: { analysisId: string };
   StartAnalysis: undefined;
+  // Stylist clients
+  MyClients: undefined;
+  AddClient: undefined;
+  ClientDetail: { clientId: string; clientName: string };
 };
 
 // Типи для navigation prop

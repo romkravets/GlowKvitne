@@ -97,4 +97,19 @@ export const SUBSCRIPTION_PLANS = {
       prioritySupport: true,
     },
   },
+
+  stylist: {
+    id: 'stylist',
+    name: 'Стиліст',
+    price: { UAH: 999 },
+    features: {
+      analysesPerMonth: 50,
+      outfitsPerMonth: 200,
+      clientManagement: true,
+      detailedAnalysis: true,
+      celebrityTwins: true,
+      pdfExport: true,
+      prioritySupport: true,
+    },
+  },
 };

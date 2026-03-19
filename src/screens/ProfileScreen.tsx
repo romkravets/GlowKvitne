@@ -23,7 +23,7 @@ interface UserProfile {
   name: string;
   email: string;
   avatar?: string;
-  subscription: 'free' | 'basic' | 'premium';
+  subscription: 'free' | 'basic' | 'premium' | 'stylist';
   analysisCount: number;
   outfitCount: number;
 }
@@ -45,7 +45,7 @@ const ProfileScreen: React.FC<NavigationProps> = ({ navigation }) => {
       const mockProfile: UserProfile = {
         name: user?.displayName || 'Користувач',
         email: user?.email || 'user@example.com',
-        subscription: user?.subscription.plan || '',
+        subscription: (user?.subscription?.plan || 'free') as UserProfile['subscription'],
         analysisCount: user?.subscription?.usage.analysesThisMonth || 0,
         outfitCount: user?.subscription?.usage.outfitsThisMonth || 0,
       };
@@ -108,11 +108,14 @@ const ProfileScreen: React.FC<NavigationProps> = ({ navigation }) => {
     );
   };
 
+  const isStylist = profile?.subscription === 'stylist';
+
   const subscriptionBadge = () => {
-    const badges = {
+    const badges: Record<string, { text: string; color: string; emoji: string }> = {
       free: { text: 'FREE', color: '#9E9E9E', emoji: '🆓' },
       basic: { text: 'BASIC', color: '#4CAF50', emoji: '⭐' },
       premium: { text: 'PREMIUM', color: '#FFD700', emoji: '👑' },
+      stylist: { text: 'STYLIST', color: '#C49B63', emoji: '💼' },
     };
     const badge = badges[profile?.subscription || 'free'];
 
@@ -179,6 +182,15 @@ const ProfileScreen: React.FC<NavigationProps> = ({ navigation }) => {
             title="Мої аналізи"
             onPress={() => navigation.navigate('MyAnalysis')}
           />
+
+          {isStylist && (
+            <MenuButton
+              icon="👥"
+              title="Мої клієнти"
+              subtitle="Управління клієнтами"
+              onPress={() => navigation.navigate('MyClients')}
+            />
+          )}
 
           {profile.subscription === 'free' && (
             <MenuButton

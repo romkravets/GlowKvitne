@@ -14,6 +14,9 @@ import MyAnalysesScreen from '../screens/MyAnalysesScreen';
 import StartAnalysisScreen from '../screens/StartAnalysisScreen';
 import AnalysisLoadingScreen from '../screens/AnalysisLoadingScreen';
 import AnalysisResultsScreen from '../screens/AnalysisResultsScreen';
+import MyClientsScreen from '../screens/MyClientsScreen';
+import AddClientScreen from '../screens/AddClientScreen';
+import ClientDetailScreen from '../screens/ClientDetailScreen';
 import {
   EditProfileScreen,
   SettingsScreen,
@@ -118,6 +121,21 @@ const ProfileStackNavigator: React.FC = () => {
           title: 'Результати',
           headerShown: false,
         }}
+      />
+      <Stack.Screen
+        name="MyClients"
+        component={MyClientsScreen}
+        options={{ title: 'Мої клієнти' }}
+      />
+      <Stack.Screen
+        name="AddClient"
+        component={AddClientScreen}
+        options={{ title: 'Новий клієнт' }}
+      />
+      <Stack.Screen
+        name="ClientDetail"
+        component={ClientDetailScreen}
+        options={({ route }) => ({ title: route.params.clientName })}
       />
     </Stack.Navigator>
   );
