@@ -46,7 +46,10 @@ Five-level hierarchy:
 
 ### API (src/api/)
 - `client.ts` — `analyzePhotos(faceBase64, bodyBase64?)` → `POST /api/analysis/test-with-photo`, 5-minute timeout
-- `analysisApi.ts` — authenticated analysis endpoints
+- `analysisApi.ts` — authenticated analysis endpoints:
+  - `createAnalysis(facePhotoBase64, bodyPhotoBase64?)` — analysis flow
+  - `virtualTryOn({ imageBase64, prompt })` → `POST /api/virtual-tryon` — AI image editing
+  - `saveTryOnResult(imageSource)` → `POST /api/virtual-tryon/save` — persist try-on result to Firebase Storage
 - Base URL: `localhost:3000` in dev, `https://api.glowkvitne.com` in production (set in `src/config/firebase.ts` → `API_CONFIG.baseURL`)
 
 ### Config (src/config/firebase.ts)
@@ -58,11 +61,20 @@ Exports `firebaseConfig`, `API_CONFIG` (baseURL + timeout), `ONE_TIME_PURCHASES`
 - **premium** — unlimited, PDF export, priority support
 
 ### Key screens
-- `PhotoUploadScreen` → `AnalysisLoadingScreen` → `AnalysisResultsScreen` / `ResultsScreen` — the main analysis flow
+- `PhotoUploadScreen` → `AnalysisLoadingScreen` → `AnalysisResultsScreen` / `ResultsScreen` — the main analysis flow; picks face/body photos via `react-native-image-picker`, encodes to base64, sends to backend
 - `PaletteScreen` — color palette from analysis result
 - `MyAnalysesScreen` — history of analyses
-- `VirtualTryOnScreen` — AI outfit generation
+- `VirtualTryOnScreen` — AI portrait editing (Hair, Makeup, Eye Color, Skin, etc.); picks photo → sends to `POST /api/virtual-tryon` (Replicate Flux Kontext) → user saves result via `saveTryOnResult()`
 - `SubscriptionScreen` — plan upgrades and one-time purchases
+
+### Photo storage (src/services/storageService.ts)
+Client-side service — currently a lightweight placeholder; actual uploads happen server-side. Documents the Firebase Storage path structure:
+- `users/{uid}/analyses/{analysisId}/face.jpg` / `body.jpg`
+- `users/{uid}/tryon/{timestamp}.jpg`
+
+Firebase Storage security rules (`storage.rules`): each user can read/write only their own folder (`users/{userId}/{allPaths}`); backend (firebase-admin) bypasses client rules entirely.
+
+`AnalysisResponse` (from `src/types/analysis.ts`) includes a `photos` field with `facePhoto` and `bodyPhoto` objects containing signed URLs returned from the backend.
 
 ### Types (src/types/analysis.ts)
 `AnalysisResponse` defines the shape returned by the backend: `larsonAnalysis` (styleType, value, chroma, colorSeason, colorPalette, integratedRecommendations, archetypeAnalysis, celebrityMatches).
