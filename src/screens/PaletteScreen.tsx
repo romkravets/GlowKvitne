@@ -1,14 +1,16 @@
 /**
  * Palette Screen
- * Відображення кольорової палітри користувача
+ * Показує кольорову палітру з реального аналізу юзера.
+ * Якщо аналізів декілька — горизонтальний пікер зверху.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  FlatList,
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
@@ -16,169 +18,365 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationProps } from '../navigation/types';
+import { getUserAnalyses, type Analysis } from '../api/analysisApi';
 
 const { width } = Dimensions.get('window');
-const COLOR_SIZE = (width - 80) / 4; // 4 кольори в ряд
+const SWATCH_W = (width - 40 - 16) / 3;
+const SWATCH_H = SWATCH_W * 0.72;
 
-interface ColorPalette {
-  baseColors: string[];
-  accentColors: string[];
-  avoidColors: string[];
-  metal: 'gold' | 'silver';
-  colorType: string;
+// ── helpers ──────────────────────────────────────────────────────────────────
+type PaletteColor = string | { hex: string; name: string };
+
+const parseColor = (color: PaletteColor): { hex: string; name: string } => {
+  if (color && typeof color === 'object' && (color as any).hex) {
+    return { hex: (color as any).hex, name: (color as any).name || '' };
+  }
+  const str = String(color || '');
+  const hex = str.match(/#[0-9A-Fa-f]{3,6}/)?.[0] || str;
+  const name = str.replace(/#[0-9A-Fa-f]{3,6}\s*/g, '').trim();
+  return { hex, name };
+};
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('uk-UA', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
+// ── ColorRect ─────────────────────────────────────────────────────────────────
+const ColorRect: React.FC<{ color: PaletteColor; avoid?: boolean }> = ({
+  color,
+  avoid,
+}) => {
+  const { hex, name } = parseColor(color);
+  return (
+    <View style={sw.item}>
+      <View
+        style={[sw.rect, { backgroundColor: hex }, avoid && sw.avoidBorder]}
+      />
+      {!!name && (
+        <Text style={sw.name} numberOfLines={2}>
+          {name}
+        </Text>
+      )}
+    </View>
+  );
+};
+
+const sw = StyleSheet.create({
+  item: { width: SWATCH_W, alignItems: 'center' },
+  rect: {
+    width: SWATCH_W,
+    height: SWATCH_H,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  avoidBorder: { borderWidth: 2, borderColor: '#FF4444' },
+  name: {
+    marginTop: 5,
+    fontSize: 10,
+    color: '#555',
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+});
+
+// ── PaletteSection ────────────────────────────────────────────────────────────
+const PaletteSection: React.FC<{
+  title: string;
+  description?: string;
+  colors: PaletteColor[];
+  avoid?: boolean;
+}> = ({ title, description, colors, avoid }) => {
+  if (!colors?.length) return null;
+  return (
+    <View style={styles.section}>
+      {!!title && <Text style={styles.sectionTitle}>{title}</Text>}
+      {!!description && <Text style={styles.sectionDesc}>{description}</Text>}
+      <View style={styles.grid}>
+        {colors.map((c, i) => (
+          <ColorRect key={i} color={c} avoid={avoid} />
+        ))}
+      </View>
+    </View>
+  );
+};
+
+// ── Palette picker card ───────────────────────────────────────────────────────
+const PickerCard: React.FC<{
+  analysis: Analysis;
+  selected: boolean;
+  onPress: () => void;
+}> = ({ analysis, selected, onPress }) => {
+  const la = (analysis as any).larsonAnalysis;
+  const styleType =
+    la?.styleType?.blendName || la?.styleType?.primaryType || '—';
+  const season = (analysis as any).colorSeason?.primary || '';
+  const neutrals: PaletteColor[] = la?.colorPalette?.bestColors?.neutrals || [];
+
+  return (
+    <TouchableOpacity
+      style={[pick.card, selected && pick.cardSelected]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      {/* мінімальна кольорова смужка */}
+      <View style={pick.dots}>
+        {neutrals.slice(0, 4).map((c, i) => {
+          const { hex } = parseColor(c);
+          return <View key={i} style={[pick.dot, { backgroundColor: hex }]} />;
+        })}
+        {neutrals.length === 0 && (
+          <View style={[pick.dot, { backgroundColor: '#DDD' }]} />
+        )}
+      </View>
+      <Text
+        style={[pick.type, selected && pick.typeSelected]}
+        numberOfLines={1}
+      >
+        {styleType}
+      </Text>
+      {!!season && (
+        <Text style={pick.season} numberOfLines={1}>
+          {season}
+        </Text>
+      )}
+      <Text style={pick.date}>{formatDate(analysis.createdAt)}</Text>
+    </TouchableOpacity>
+  );
+};
+
+const pick = StyleSheet.create({
+  card: {
+    width: 110,
+    marginRight: 10,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardSelected: { borderColor: '#C49B63' },
+  dots: { flexDirection: 'row', gap: 4, marginBottom: 8 },
+  dot: { width: 18, height: 18, borderRadius: 4 },
+  type: { fontSize: 12, fontWeight: '700', color: '#333', marginBottom: 2 },
+  typeSelected: { color: '#C49B63' },
+  season: { fontSize: 10, color: '#888', marginBottom: 2 },
+  date: { fontSize: 10, color: '#BBB' },
+});
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 const PaletteScreen: React.FC<NavigationProps> = ({ navigation }) => {
-  const [palette, setPalette] = useState<ColorPalette | null>(null);
+  const [analyses, setAnalyses] = useState<Analysis[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadPalette();
-  }, []);
-
-  const loadPalette = async () => {
+  const load = useCallback(async () => {
     try {
-      // TODO: Завантажити палітру з API
-      // const data = await analysisService.getMyPalette();
-
-      // Симуляція
-      await new Promise<void>(resolve => setTimeout(resolve, 1000));
-
-      const mockPalette: ColorPalette = {
-        colorType: 'Тепла Осінь',
-        baseColors: [
-          '#8B4513', // Saddle Brown
-          '#D2691E', // Chocolate
-          '#CD853F', // Peru
-          '#DEB887', // Burlywood
-          '#BC8F8F', // Rosy Brown
-          '#A0522D', // Sienna
-          '#708090', // Slate Gray
-          '#2F4F4F', // Dark Slate Gray
-        ],
-        accentColors: ['#B8860B', '#DAA520', '#FF8C00', '#CD5C5C', '#8B0000'],
-        avoidColors: ['#E0FFFF', '#B0E0E6', '#87CEEB', '#BA55D3', '#FF1493'],
-        metal: 'gold',
-      };
-
-      setPalette(mockPalette);
-    } catch (error) {
-      console.error('Error loading palette:', error);
-      Alert.alert('Помилка', 'Не вдалося завантажити палітру');
+      const { analyses: list } = await getUserAnalyses();
+      const completed = list.filter(a => a.status === 'completed');
+      setAnalyses(completed);
+      if (completed.length > 0) setSelectedId((completed[0] as any)._id);
+    } catch (e: any) {
+      Alert.alert('Помилка', e.message || 'Не вдалося завантажити аналізи');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const renderColorCircle = (color: string, index: number) => (
-    <TouchableOpacity
-      key={`${color}-${index}`}
-      style={[styles.colorCircle, { backgroundColor: color }]}
-      onPress={() => navigation.navigate('ColorDetails', { color })}
-    />
-  );
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
+        <View style={styles.center}>
           <ActivityIndicator size="large" color="#C49B63" />
         </View>
       </SafeAreaView>
     );
   }
 
-  if (!palette) {
+  if (analyses.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.emptyContainer}>
+        <View style={styles.center}>
           <Text style={styles.emptyEmoji}>🎨</Text>
-          <Text style={styles.emptyTitle}>Немає палітри</Text>
+          <Text style={styles.emptyTitle}>Немає аналізів</Text>
           <Text style={styles.emptyText}>
-            Пройдіть аналіз колоротипу, щоб отримати персональну палітру
+            Пройдіть аналіз кольоротипу, щоб отримати персональну палітру
           </Text>
           <TouchableOpacity
-            style={styles.analyzeButton}
+            style={styles.ctaBtn}
             onPress={() =>
-              navigation.navigate('HomeTab', {
-                screen: 'StartAnalysis',
-              } as any)
+              navigation.navigate('HomeTab', { screen: 'StartAnalysis' } as any)
             }
           >
-            <Text style={styles.analyzeButtonText}>Пройти аналіз</Text>
+            <Text style={styles.ctaBtnText}>Пройти аналіз</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
+  const selected =
+    analyses.find(a => (a as any)._id === selectedId) || analyses[0];
+  const la = (selected as any).larsonAnalysis;
+  const colorSeason = (selected as any).colorSeason;
+
+  const styleType =
+    la?.styleType?.blendName || la?.styleType?.primaryType || '';
+  const seasonName = colorSeason?.primary || '';
+  const seasonSignature = la?.colorPalette?.seasonSignature || '';
+
+  const neutralColors: PaletteColor[] =
+    la?.colorPalette?.bestColors?.neutrals || [];
+  const basicColors: PaletteColor[] = la?.colorPalette?.bestColors?.basic || [];
+  const accentColors: PaletteColor[] =
+    la?.colorPalette?.bestColors?.accents || [];
+  const whiteColors: PaletteColor[] =
+    la?.colorPalette?.bestColors?.whites || [];
+  const blackColors: PaletteColor[] =
+    la?.colorPalette?.bestColors?.blacks || [];
+  const avoidColors: PaletteColor[] = la?.colorPalette?.avoidColors || [];
+  const metals: string = la?.colorPalette?.bestColors?.metals || '';
+
+  const hasAnyColors =
+    neutralColors.length > 0 ||
+    basicColors.length > 0 ||
+    accentColors.length > 0 ||
+    avoidColors.length > 0;
+
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* ── Пікер аналізів (тільки якщо > 1) ── */}
+        {analyses.length > 1 && (
+          <View style={styles.pickerBlock}>
+            <Text style={styles.pickerLabel}>Оберіть аналіз</Text>
+            <FlatList
+              data={analyses}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={a => (a as any)._id}
+              renderItem={({ item }) => (
+                <PickerCard
+                  analysis={item}
+                  selected={(item as any)._id === selectedId}
+                  onPress={() => setSelectedId((item as any)._id)}
+                />
+              )}
+              contentContainerStyle={{ paddingRight: 20 }}
+            />
+          </View>
+        )}
+
+        {/* ── Заголовок ── */}
         <View style={styles.header}>
-          <Text style={styles.colorType}>🎨 {palette.colorType}</Text>
-          <Text style={styles.subtitle}>Ваша персональна палітра</Text>
+          {!!styleType && <Text style={styles.styleType}>{styleType}</Text>}
+          {!!seasonName && (
+            <Text style={styles.seasonName}>🎨 {seasonName}</Text>
+          )}
+          {!!seasonSignature && (
+            <Text style={styles.seasonSignature}>{seasonSignature}</Text>
+          )}
+          <Text style={styles.headerSub}>{formatDate(selected.createdAt)}</Text>
         </View>
 
-        {/* Base Colors */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Базові кольори</Text>
-          <Text style={styles.sectionDescription}>
-            Ідеальні для основного гардеробу
-          </Text>
-          <View style={styles.colorGrid}>
-            {palette.baseColors.map(renderColorCircle)}
-          </View>
-        </View>
+        {/* ── Палітра ── */}
+        {hasAnyColors ? (
+          <>
+            <PaletteSection
+              title="Нейтральні"
+              description="Тональна шкала — основа гардеробу"
+              colors={neutralColors}
+            />
+            <PaletteSection
+              title="Basic"
+              description="Підписні кольори сезону"
+              colors={basicColors}
+            />
+            <PaletteSection
+              title="Акцентні"
+              description="Для аксесуарів та яскравих деталей"
+              colors={accentColors}
+            />
+            <PaletteSection title="Білі відтінки" colors={whiteColors} />
+            <PaletteSection title="Темні відтінки" colors={blackColors} />
 
-        {/* Accent Colors */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Акцентні кольори</Text>
-          <Text style={styles.sectionDescription}>
-            Для аксесуарів та яскравих деталей
-          </Text>
-          <View style={styles.colorGrid}>
-            {palette.accentColors.map(renderColorCircle)}
-          </View>
-        </View>
+            {!!metals && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Метал</Text>
+                <View style={styles.metalRow}>
+                  <Text style={styles.metalEmoji}>
+                    {metals === 'gold'
+                      ? '🥇'
+                      : metals === 'silver'
+                      ? '🥈'
+                      : '🌹'}
+                  </Text>
+                  <Text style={styles.metalText}>
+                    {metals === 'gold'
+                      ? 'Золото'
+                      : metals === 'silver'
+                      ? 'Срібло'
+                      : 'Рожеве золото'}
+                  </Text>
+                </View>
+              </View>
+            )}
 
-        {/* Metal */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Метал</Text>
-          <View style={styles.metalContainer}>
-            <Text style={styles.metalEmoji}>
-              {palette.metal === 'gold' ? '🥇' : '🥈'}
+            <PaletteSection
+              title="❌ Уникайте"
+              description="Ці кольори можуть зробити вас блідішою"
+              colors={avoidColors}
+              avoid
+            />
+          </>
+        ) : (
+          <View style={styles.noPaletteBox}>
+            <Text style={styles.noPaletteText}>
+              Палітра цього аналізу недоступна — можливо він був зроблений у
+              старому форматі.
             </Text>
-            <Text style={styles.metalText}>
-              {palette.metal === 'gold' ? 'Золото' : 'Срібло'}
-            </Text>
           </View>
-          <Text style={styles.metalDescription}>
-            Цей метал найкраще підходить для прикрас та аксесуарів
-          </Text>
-        </View>
+        )}
 
-        {/* Avoid Colors */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>❌ Уникайте</Text>
-          <Text style={styles.sectionDescription}>
-            Ці кольори можуть зробити вас блідішою
-          </Text>
-          <View style={styles.colorGrid}>
-            {palette.avoidColors.map(renderColorCircle)}
-          </View>
-        </View>
-
-        {/* Download Button */}
+        {/* ── CTA ── */}
         <TouchableOpacity
-          style={styles.downloadButton}
-          onPress={() => navigation.navigate('DownloadPalette')}
+          style={styles.ctaBtn}
+          onPress={() =>
+            Alert.alert('У розробці', 'Функція завантаження PDF в розробці')
+          }
         >
-          <Text style={styles.downloadButtonText}>📥 Завантажити палітру</Text>
+          <Text style={styles.ctaBtnText}>📥 Завантажити PDF</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.secondaryBtn}
+          onPress={() =>
+            navigation.navigate('AnalysisResults', {
+              analysisResult: selected,
+            } as any)
+          }
+        >
+          <Text style={styles.secondaryBtnText}>Переглянути повний аналіз</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -186,147 +384,134 @@ const PaletteScreen: React.FC<NavigationProps> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
-  loadingContainer: {
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 40,
   },
-  scrollContent: {
-    padding: 20,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  colorType: {
-    fontSize: 24,
+  scroll: { padding: 20 },
+
+  // Picker
+  pickerBlock: { marginBottom: 20 },
+  pickerLabel: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 8,
+    color: '#999',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
   },
-  subtitle: {
+
+  // Header
+  header: { alignItems: 'center', marginBottom: 24 },
+  styleType: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  seasonName: {
     fontSize: 16,
-    color: '#666666',
+    fontWeight: '700',
+    color: '#C49B63',
+    marginBottom: 4,
   },
-  section: {
-    marginBottom: 32,
+  seasonSignature: {
+    fontSize: 13,
+    color: '#888',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: 4,
   },
+  headerSub: { fontSize: 11, color: '#BBB' },
+
+  // Sections
+  section: { marginBottom: 24 },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 14,
     fontWeight: '700',
     color: '#1A1A1A',
-    marginBottom: 8,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
-  sectionDescription: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 16,
-  },
-  colorGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  colorCircle: {
-    width: COLOR_SIZE,
-    height: COLOR_SIZE,
-    borderRadius: COLOR_SIZE / 2,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  metalContainer: {
+  sectionDesc: { fontSize: 12, color: '#999', marginBottom: 10 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+
+  // Metal
+  metalRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 8,
+    gap: 10,
+    backgroundColor: '#FFF',
+    padding: 14,
+    borderRadius: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 4,
     elevation: 2,
   },
-  metalEmoji: {
-    fontSize: 40,
-    marginRight: 16,
+  metalEmoji: { fontSize: 30 },
+  metalText: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
+
+  // No palette
+  noPaletteBox: {
+    padding: 20,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    marginBottom: 20,
   },
-  metalText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1A1A1A',
+  noPaletteText: {
+    fontSize: 13,
+    color: '#888',
+    textAlign: 'center',
+    lineHeight: 20,
   },
-  metalDescription: {
-    fontSize: 14,
-    color: '#666666',
-    fontStyle: 'italic',
-  },
-  downloadButton: {
+
+  // CTA
+  ctaBtn: {
     backgroundColor: '#C49B63',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 30,
+    marginTop: 8,
+    marginBottom: 12,
     shadowColor: '#C49B63',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
-  downloadButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  ctaBtnText: { fontSize: 16, fontWeight: '600', color: '#FFF' },
+  secondaryBtn: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#C49B63',
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
-    paddingHorizontal: 40,
+    marginBottom: 30,
   },
-  emptyEmoji: {
-    fontSize: 80,
-    marginBottom: 20,
-  },
+  secondaryBtnText: { fontSize: 14, fontWeight: '600', color: '#C49B63' },
+
+  // Empty
+  emptyEmoji: { fontSize: 64, marginBottom: 16 },
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#1A1A1A',
-    marginBottom: 12,
+    marginBottom: 10,
     textAlign: 'center',
   },
   emptyText: {
-    fontSize: 16,
-    color: '#666666',
+    fontSize: 14,
+    color: '#888',
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 30,
-  },
-  analyzeButton: {
-    backgroundColor: '#C49B63',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    shadowColor: '#C49B63',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  analyzeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    lineHeight: 22,
+    marginBottom: 24,
   },
 });
 

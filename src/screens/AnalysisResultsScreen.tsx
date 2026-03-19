@@ -11,10 +11,239 @@ import {
   TouchableOpacity,
   Share,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationProps } from '../navigation/types';
 import { Analysis } from '../api/analysisApi';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+/** Handles both old string "#HEX name" and new {hex, name} object formats */
+const parseColor = (color: any): { hex: string; name: string } => {
+  if (color && typeof color === 'object' && color.hex) {
+    return { hex: color.hex, name: color.name || '' };
+  }
+  const str = String(color || '');
+  const hex = str.match(/#[0-9A-Fa-f]{3,6}/)?.[0] || str;
+  const name = str.replace(/#[0-9A-Fa-f]{3,6}\s*/g, '').trim();
+  return { hex, name };
+};
+
+// ── SemicircleGauge ───────────────────────────────────────────────────────────
+interface GaugeProps {
+  value: number; // 0–100  (0 = full left, 100 = full right)
+  leftLabel: string;
+  rightLabel: string;
+  leftColor: string;
+  rightColor: string;
+  title: string;
+  description?: string;
+}
+
+const SemicircleGauge: React.FC<GaugeProps> = ({
+  value,
+  leftLabel,
+  rightLabel,
+  leftColor,
+  rightColor,
+  title,
+  description,
+}) => {
+  const W = SCREEN_WIDTH - 80;
+  const H = W / 2;
+  const safe = Math.max(0, Math.min(100, value));
+
+  // indicator position on the semicircle arc
+  const theta = ((100 - safe) / 100) * Math.PI; // 0→right, π→left
+  const r = W * 0.33;
+  const cx = W / 2 + r * Math.cos(theta);
+  const cy = H - r * Math.sin(theta);
+
+  return (
+    <View style={gStyles.card}>
+      <Text style={gStyles.title}>{title}</Text>
+      {/* gauge visual */}
+      <View style={{ width: W, height: H + 14, alignSelf: 'center' }}>
+        {/* semicircle — overflow hidden clips the bottom half */}
+        <View style={{ width: W, height: H, overflow: 'hidden' }}>
+          {/* full circle, split left/right by color */}
+          <View
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              width: W,
+              height: W,
+              borderRadius: W / 2,
+              flexDirection: 'row',
+              overflow: 'hidden',
+            }}
+          >
+            <View
+              style={{ flex: 1, backgroundColor: leftColor, opacity: 0.45 }}
+            />
+            <View
+              style={{ flex: 1, backgroundColor: rightColor, opacity: 0.45 }}
+            />
+          </View>
+          {/* inner white donut mask */}
+          <View
+            style={{
+              position: 'absolute',
+              width: W * 0.58,
+              height: W * 0.58,
+              borderRadius: (W * 0.58) / 2,
+              backgroundColor: '#FAFAFA',
+              alignSelf: 'center',
+              bottom: -(W * 0.58) / 2 + 2,
+            }}
+          />
+        </View>
+        {/* indicator dot */}
+        <View
+          style={{
+            position: 'absolute',
+            width: 14,
+            height: 14,
+            borderRadius: 7,
+            backgroundColor: safe <= 50 ? leftColor : rightColor,
+            borderWidth: 2.5,
+            borderColor: '#FFF',
+            left: cx - 7,
+            top: cy - 7,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 3,
+            elevation: 5,
+          }}
+        />
+      </View>
+      {/* labels */}
+      <View style={gStyles.labelsRow}>
+        <Text style={[gStyles.label, { color: leftColor }]}>{leftLabel}</Text>
+        <Text style={[gStyles.label, { color: rightColor }]}>{rightLabel}</Text>
+      </View>
+      {!!description && <Text style={gStyles.desc}>{description}</Text>}
+    </View>
+  );
+};
+
+const gStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  labelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginTop: 6,
+  },
+  label: { fontSize: 13, fontWeight: '700' },
+  desc: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 10,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+});
+
+// ── ColorRect — прямокутний swatch ────────────────────────────────────────────
+const SWATCH_W = (SCREEN_WIDTH - 40 - 32) / 3; // 3 per row, 16px gaps
+const SWATCH_H = SWATCH_W * 0.72;
+
+const ColorRect: React.FC<{ color: any; avoid?: boolean }> = ({
+  color,
+  avoid,
+}) => {
+  const { hex, name } = parseColor(color);
+  return (
+    <View style={swStyles.item}>
+      <View
+        style={[
+          swStyles.rect,
+          { backgroundColor: hex },
+          avoid && swStyles.avoidBorder,
+        ]}
+      />
+      {!!name && (
+        <Text style={swStyles.name} numberOfLines={2}>
+          {name}
+        </Text>
+      )}
+    </View>
+  );
+};
+
+const swStyles = StyleSheet.create({
+  item: { width: SWATCH_W, alignItems: 'center' },
+  rect: {
+    width: SWATCH_W,
+    height: SWATCH_H,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  avoidBorder: { borderWidth: 2, borderColor: '#FF4444' },
+  name: {
+    marginTop: 5,
+    fontSize: 10,
+    color: '#555',
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+});
+
+// ── PaletteSection — секція з назвою і grid ───────────────────────────────────
+const PaletteSection: React.FC<{
+  title: string;
+  colors: any[];
+  avoid?: boolean;
+}> = ({ title, colors, avoid }) => {
+  if (!colors?.length) return null;
+  return (
+    <View style={{ marginBottom: 20 }}>
+      <Text style={psStyles.title}>{title}</Text>
+      <View style={psStyles.grid}>
+        {colors.map((c, i) => (
+          <ColorRect key={i} color={c} avoid={avoid} />
+        ))}
+      </View>
+    </View>
+  );
+};
+
+const psStyles = StyleSheet.create({
+  title: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+});
 
 interface AnalysisResultsScreenProps extends NavigationProps {
   route: {
@@ -66,15 +295,31 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
   const skinLevel = la?.value?.skinLevel || '';
   const hairLevel = la?.value?.hairLevel || '';
   const eyeLevel = la?.value?.eyeLevel || '';
+  // gauge numeric fields
+  const undertoneScore: number =
+    la?.undertoneAnalysis?.undertoneScore ??
+    (la?.undertoneAnalysis?.result === 'warm'
+      ? 25
+      : la?.undertoneAnalysis?.result === 'cool'
+      ? 75
+      : 50);
+  const depthLevel: number =
+    la?.value?.depthLevel ??
+    (valueResult === 'light' ? 3 : valueResult === 'deep' ? 7 : 5);
+  const contrastLevel: number =
+    la?.value?.contrastLevel ??
+    (overallContrast === 'low' ? 2 : overallContrast === 'high' ? 8 : 5);
 
   // ── Palette ───────────────────────────────────────────────────
   const neutralColors = la?.colorPalette?.bestColors?.neutrals || [];
+  const basicColors = la?.colorPalette?.bestColors?.basic || [];
   const accentColors = la?.colorPalette?.bestColors?.accents || [];
   const whiteColors = la?.colorPalette?.bestColors?.whites || [];
   const blackColors = la?.colorPalette?.bestColors?.blacks || [];
   const metals = la?.colorPalette?.bestColors?.metals || '';
   const avoidColors = la?.colorPalette?.avoidColors || [];
   const paletteReason = la?.colorPalette?.reasoning || '';
+  const seasonSignature = la?.colorPalette?.seasonSignature || '';
 
   // ── Recommendations ───────────────────────────────────────────
   // Berememo z recommendations (top-level) abo la.integratedRecommendations
@@ -340,177 +585,85 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
           </View>
         )}
 
-        {/* ── Value & Chroma ── */}
+        {/* ── Gauge metrics ── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🔬 АНАЛІЗ КОЛОРИСТИКИ</Text>
-          <View style={styles.resultCard}>
-            <View style={styles.tagsRow}>
-              {!!valueResult && (
-                <View style={styles.tag}>
-                  <Text style={styles.tagText}>Value: {valueResult}</Text>
-                </View>
-              )}
-              {!!chromaResult && (
-                <View style={styles.tag}>
-                  <Text style={styles.tagText}>Chroma: {chromaResult}</Text>
-                </View>
-              )}
-              {!!overallContrast && (
-                <View style={styles.tag}>
-                  <Text style={styles.tagText}>
-                    Contrast: {overallContrast}
-                  </Text>
-                </View>
-              )}
-              {!!metals && (
-                <View style={[styles.tag, styles.tagGold]}>
-                  <Text style={styles.tagText}>
-                    {metals === 'gold'
-                      ? '🥇'
-                      : metals === 'silver'
-                      ? '🥈'
-                      : '💍'}{' '}
-                    {metals}
-                  </Text>
-                </View>
-              )}
+          <SemicircleGauge
+            value={undertoneScore}
+            leftLabel="Теплий"
+            rightLabel="Холодний"
+            leftColor="#E8A000"
+            rightColor="#4169E1"
+            title="Підтон шкіри"
+            description="Показує чи теплий або холодний відтінок у вашій шкірі"
+          />
+          <SemicircleGauge
+            value={depthLevel * 10}
+            leftLabel="Світлий"
+            rightLabel="Темний"
+            leftColor="#D4A5A5"
+            rightColor="#3C1F1F"
+            title="Глибина кольору"
+            description="Показує наскільки насиченими мають бути кольори одягу"
+          />
+          <SemicircleGauge
+            value={contrastLevel * 10}
+            leftLabel="М'який"
+            rightLabel="Яскравий"
+            leftColor="#B0C4DE"
+            rightColor="#8B008B"
+            title="Контрастність"
+            description="Визначає наскільки контрастні кольорові поєднання вам підходять"
+          />
+          {!!metals && (
+            <View style={[styles.resultCard, { marginTop: 0 }]}>
+              <Text
+                style={[
+                  styles.reasonText,
+                  { textAlign: 'center', fontWeight: '600' },
+                ]}
+              >
+                {metals === 'gold'
+                  ? '🥇 Золото'
+                  : metals === 'silver'
+                  ? '🥈 Срібло'
+                  : '💍 Рожеве золото'}{' '}
+                — ваш метал
+              </Text>
             </View>
-            {(!!skinLevel || !!hairLevel || !!eyeLevel) && (
-              <View style={[styles.tagsRow, { marginTop: 8 }]}>
-                {!!skinLevel && (
-                  <View style={styles.tag}>
-                    <Text style={styles.tagText}>Шкіра: {skinLevel}</Text>
-                  </View>
-                )}
-                {!!hairLevel && (
-                  <View style={styles.tag}>
-                    <Text style={styles.tagText}>Волосся: {hairLevel}</Text>
-                  </View>
-                )}
-                {!!eyeLevel && (
-                  <View style={styles.tag}>
-                    <Text style={styles.tagText}>Очі: {eyeLevel}</Text>
-                  </View>
-                )}
-              </View>
-            )}
-            {!!chromaReason && (
-              <Text style={styles.reasonText}>{chromaReason}</Text>
-            )}
-          </View>
+          )}
         </View>
 
         {/* ── Color Palette ── */}
-        {(neutralColors.length > 0 || accentColors.length > 0) && (
+        {(neutralColors.length > 0 ||
+          basicColors.length > 0 ||
+          accentColors.length > 0 ||
+          whiteColors.length > 0 ||
+          blackColors.length > 0) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🎨 ВАША ПАЛІТРА</Text>
+            {!!seasonSignature && (
+              <Text
+                style={[
+                  styles.reasonText,
+                  {
+                    marginBottom: 12,
+                    textAlign: 'center',
+                    fontStyle: 'italic',
+                  },
+                ]}
+              >
+                {seasonSignature}
+              </Text>
+            )}
             <View style={styles.paletteCard}>
-              {neutralColors.length > 0 && (
-                <>
-                  <Text style={styles.paletteSubtitle}>Базові кольори</Text>
-                  <View style={styles.colorRowFull}>
-                    {neutralColors.map((color: string, index: number) => {
-                      const hex =
-                        (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
-                      return (
-                        <View key={index} style={styles.colorSwatchItem}>
-                          <View
-                            style={[
-                              styles.colorCircle,
-                              { backgroundColor: hex },
-                            ]}
-                          />
-                          <Text style={styles.colorHexText}>{hex}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
-
-              {accentColors.length > 0 && (
-                <>
-                  <Text style={styles.paletteSubtitleWithMargin}>
-                    Акцентні кольори
-                  </Text>
-                  <View style={styles.colorRowFull}>
-                    {accentColors.map((color: string, index: number) => {
-                      const hex =
-                        (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
-                      return (
-                        <View key={index} style={styles.colorSwatchItem}>
-                          <View
-                            style={[
-                              styles.colorCircle,
-                              { backgroundColor: hex },
-                            ]}
-                          />
-                          <Text style={styles.colorHexText}>{hex}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
-
-              {whiteColors.length > 0 && (
-                <>
-                  <Text style={styles.paletteSubtitleWithMargin}>
-                    Білі відтінки
-                  </Text>
-                  <View style={styles.colorRowFull}>
-                    {whiteColors.map((color: string, index: number) => {
-                      const hex =
-                        (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
-                      return (
-                        <View key={index} style={styles.colorSwatchItem}>
-                          <View
-                            style={[
-                              styles.colorCircle,
-                              { backgroundColor: hex, borderColor: '#DDD' },
-                            ]}
-                          />
-                          <Text style={styles.colorHexText}>{hex}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
-
-              {blackColors.length > 0 && (
-                <>
-                  <Text style={styles.paletteSubtitleWithMargin}>
-                    Темні відтінки
-                  </Text>
-                  <View style={styles.colorRowFull}>
-                    {blackColors.map((color: string, index: number) => {
-                      const hex =
-                        (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
-                      const desc = color
-                        .replace(/#[0-9A-Fa-f]{3,6}\s*/g, '')
-                        .trim();
-                      return (
-                        <View key={index} style={styles.colorSwatchItem}>
-                          <View
-                            style={[
-                              styles.colorCircle,
-                              { backgroundColor: hex },
-                            ]}
-                          />
-                          <Text style={styles.colorHexText}>{hex}</Text>
-                          {!!desc && (
-                            <Text style={styles.colorDescText}>{desc}</Text>
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
-
+              <PaletteSection title="Нейтральні" colors={neutralColors} />
+              <PaletteSection title="Basic" colors={basicColors} />
+              <PaletteSection title="Акцентні" colors={accentColors} />
+              <PaletteSection title="Білі відтінки" colors={whiteColors} />
+              <PaletteSection title="Темні відтінки" colors={blackColors} />
               {!!paletteReason && (
-                <Text style={[styles.reasonText, { marginTop: 12 }]}>
+                <Text style={[styles.reasonText, { marginTop: 4 }]}>
                   {paletteReason}
                 </Text>
               )}
@@ -523,24 +676,7 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>❌ УНИКАЙТЕ</Text>
             <View style={styles.paletteCard}>
-              <View style={styles.colorRowFull}>
-                {avoidColors.map((color: string, index: number) => {
-                  const hex =
-                    (color || '').match(/#[0-9A-Fa-f]{3,6}/)?.[0] || color;
-                  return (
-                    <View key={index} style={styles.colorSwatchItem}>
-                      <View
-                        style={[
-                          styles.colorCircle,
-                          styles.avoidCircle,
-                          { backgroundColor: hex },
-                        ]}
-                      />
-                      <Text style={styles.colorHexText}>{hex}</Text>
-                    </View>
-                  );
-                })}
-              </View>
+              <PaletteSection title="" colors={avoidColors} avoid />
             </View>
           </View>
         )}
