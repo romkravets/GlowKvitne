@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { API_CONFIG } from '../config/firebase';
@@ -88,7 +89,7 @@ const ONE_TIME_PURCHASES = {
 
 type PlanId = keyof typeof SUBSCRIPTION_PLANS;
 
-const SubscriptionScreen = () => {
+const SubscriptionScreen = ({ navigation }: { navigation: any }) => {
   const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'subscription' | 'purchase'>(
@@ -131,8 +132,9 @@ const SubscriptionScreen = () => {
       await refreshUser();
 
       Alert.alert(
-        'Готово',
-        `План змінено на "${chosenPlan?.name ?? planId}" (тестовий режим)`,
+        'Готово ✓',
+        `План змінено на "${chosenPlan?.name ?? planId}"`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }],
       );
     } catch (error: any) {
       const message =
@@ -326,8 +328,11 @@ const SubscriptionScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.backBtnText}>← Назад</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>Підписки та покупки</Text>
         <Text style={styles.subtitle}>Обери свій план або купи разово</Text>
       </View>
@@ -376,7 +381,7 @@ const SubscriptionScreen = () => {
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -403,7 +408,9 @@ const FeatureItem = ({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1a1a2e' },
-  header: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
+  header: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 },
+  backBtn: { marginBottom: 12 },
+  backBtnText: { fontSize: 15, color: '#a0a0a0', fontWeight: '600' },
   title: { fontSize: 32, fontWeight: 'bold', color: '#fff', marginBottom: 8 },
   subtitle: { fontSize: 16, color: '#a0a0a0' },
 

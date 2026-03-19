@@ -26,6 +26,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationProps } from '../navigation/types';
 import { getUserAnalyses, type Analysis } from '../api/analysisApi';
+import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -469,6 +470,70 @@ const OCCASION_LABEL: Record<string, string> = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ПІКЕР АНАЛІЗУ
+// ─────────────────────────────────────────────────────────────────────────────
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+type PaletteColor = string | { hex: string; name: string };
+function parseHex(c: PaletteColor): string {
+  if (c && typeof c === 'object' && (c as any).hex) return (c as any).hex;
+  return (String(c).match(/#[0-9A-Fa-f]{3,6}/) || ['#CCC'])[0];
+}
+
+const PickerCard: React.FC<{
+  analysis: Analysis;
+  selected: boolean;
+  onPress: () => void;
+}> = ({ analysis, selected, onPress }) => {
+  const la = (analysis as any).larsonAnalysis;
+  const season = (analysis as any).colorSeason?.primary || '';
+  const neutrals: PaletteColor[] = la?.colorPalette?.bestColors?.neutrals || [];
+
+  return (
+    <TouchableOpacity
+      style={[gp.card, selected && gp.cardSelected]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      <View style={gp.dots}>
+        {neutrals.slice(0, 4).map((c, i) => (
+          <View key={i} style={[gp.dot, { backgroundColor: parseHex(c) }]} />
+        ))}
+        {neutrals.length === 0 && <View style={[gp.dot, { backgroundColor: '#444' }]} />}
+      </View>
+      {!!season && (
+        <Text style={[gp.season, selected && gp.seasonSelected]} numberOfLines={1}>
+          {season}
+        </Text>
+      )}
+      <Text style={gp.date}>{formatDate(analysis.createdAt)}</Text>
+    </TouchableOpacity>
+  );
+};
+
+const gp = StyleSheet.create({
+  card: {
+    width: 120,
+    marginRight: 10,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#2A2A3E',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  cardSelected: { borderColor: '#C49B63' },
+  dots: { flexDirection: 'row', gap: 4, marginBottom: 8 },
+  dot: { width: 16, height: 16, borderRadius: 4 },
+  season: { fontSize: 11, fontWeight: '700', color: '#aaa', marginBottom: 2 },
+  seasonSelected: { color: '#C49B63' },
+  date: { fontSize: 10, color: '#666' },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // КОМПОНЕНТИ
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -532,10 +597,11 @@ const sb = StyleSheet.create({
   note: { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 18 },
 });
 
-const BrandCard: React.FC<{ brand: Brand; isPremiumUser: boolean }> = ({
-  brand,
-  isPremiumUser,
-}) => {
+const BrandCard: React.FC<{
+  brand: Brand;
+  isPremiumUser: boolean;
+  onSubscribePress: () => void;
+}> = ({ brand, isPremiumUser, onSubscribePress }) => {
   const locked = brand.type === 'local' && !isPremiumUser && !brand.isPartner;
 
   const handlePress = async () => {
@@ -545,7 +611,7 @@ const BrandCard: React.FC<{ brand: Brand; isPremiumUser: boolean }> = ({
         'Локальні українські дизайнери доступні в Basic+ підписці',
         [
           { text: 'Скасувати', style: 'cancel' },
-          { text: 'Переглянути підписку', onPress: () => {} },
+          { text: 'Переглянути підписку', onPress: onSubscribePress },
         ],
       );
       return;
@@ -751,15 +817,21 @@ const oc = StyleSheet.create({
 // ГОЛОВНИЙ КОМПОНЕНТ
 // ─────────────────────────────────────────────────────────────────────────────
 const GalleryScreen: React.FC<NavigationProps> = ({ navigation }) => {
+  const { user } = useAuth();
+  const isPremiumUser = user?.subscription?.plan === 'basic' || user?.subscription?.plan === 'premium';
+
   const [loading, setLoading] = useState(true);
-  const [lastAnalysis, setLastAnalysis] = useState<Analysis | null>(null);
-  const [isPremiumUser] = useState(false); // TODO: взяти з user profile
+  const [analyses, setAnalyses] = useState<Analysis[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const goToSubscription = () => navigation.navigate('ProfileTab', { screen: 'Subscription' } as any);
 
   const load = useCallback(async () => {
     try {
-      const { analyses } = await getUserAnalyses();
-      const completed = analyses.filter(a => a.status === 'completed');
-      setLastAnalysis(completed[0] || null);
+      const { analyses: list } = await getUserAnalyses();
+      const completed = list.filter(a => a.status === 'completed');
+      setAnalyses(completed);
+      if (completed.length > 0) setSelectedId((completed[0] as any)._id);
     } catch {
       // без аналізу — показуємо загальні рекомендації
     } finally {
@@ -771,10 +843,12 @@ const GalleryScreen: React.FC<NavigationProps> = ({ navigation }) => {
     load();
   }, [load]);
 
+  const selectedAnalysis = analyses.find(a => (a as any)._id === selectedId) || analyses[0] || null;
+
   // ── Дані з аналізу ────────────────────────────────────────────
-  const la = (lastAnalysis as any)?.larsonAnalysis;
+  const la = (selectedAnalysis as any)?.larsonAnalysis;
   const colorSeason: string =
-    (lastAnalysis as any)?.colorSeason?.primary || 'True Autumn';
+    (selectedAnalysis as any)?.colorSeason?.primary || 'True Autumn';
   const seasonFamily = getSeasonFamily(colorSeason);
   const seasonalNote = getSeasonalNote(colorSeason);
 
@@ -810,8 +884,30 @@ const GalleryScreen: React.FC<NavigationProps> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* ── Seasonal Banner ── */}
         <View style={styles.topPadding} />
+
+        {/* ── Пікер аналізу (тільки якщо > 1) ── */}
+        {analyses.length > 1 && (
+          <View style={styles.pickerBlock}>
+            <Text style={styles.pickerLabel}>Оберіть аналіз</Text>
+            <FlatList
+              data={analyses}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={a => (a as any)._id}
+              renderItem={({ item }) => (
+                <PickerCard
+                  analysis={item}
+                  selected={(item as any)._id === selectedId}
+                  onPress={() => setSelectedId((item as any)._id)}
+                />
+              )}
+              contentContainerStyle={styles.pickerList}
+            />
+          </View>
+        )}
+
+        {/* ── Seasonal Banner ── */}
         <SeasonalBanner
           season={colorSeason}
           colors={
@@ -828,11 +924,13 @@ const GalleryScreen: React.FC<NavigationProps> = ({ navigation }) => {
           onPress={() => navigation.navigate('VirtualTryOn')}
           activeOpacity={0.85}
         >
-          <Text style={styles.tryOnEmoji}>✨</Text>
+          <Text style={styles.tryOnEmoji}>{isPremiumUser ? '✨' : '🔒'}</Text>
           <View style={{ flex: 1 }}>
             <Text style={styles.tryOnTitle}>Virtual Try-On</Text>
             <Text style={styles.tryOnSub}>
-              Виберіть зачіску, колір волосся та макіяж
+              {isPremiumUser
+                ? 'Виберіть зачіску, колір волосся та макіяж'
+                : 'Доступно у Basic+ підписці · Спробуй безкоштовно'}
             </Text>
           </View>
           <Text style={styles.tryOnArrow}>›</Text>
@@ -841,7 +939,7 @@ const GalleryScreen: React.FC<NavigationProps> = ({ navigation }) => {
         {/* ── Бренди ── */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>🛍️ Бренди для вашого типу</Text>
-          {!lastAnalysis && (
+          {!selectedAnalysis && (
             <Text style={styles.sectionSub}>
               Загальні рекомендації · Пройдіть аналіз для персональних
             </Text>
@@ -853,7 +951,7 @@ const GalleryScreen: React.FC<NavigationProps> = ({ navigation }) => {
           showsHorizontalScrollIndicator={false}
           keyExtractor={b => b.id}
           renderItem={({ item }) => (
-            <BrandCard brand={item} isPremiumUser={isPremiumUser} />
+            <BrandCard brand={item} isPremiumUser={isPremiumUser} onSubscribePress={goToSubscription} />
           )}
           contentContainerStyle={styles.brandsList}
         />
@@ -910,7 +1008,7 @@ const GalleryScreen: React.FC<NavigationProps> = ({ navigation }) => {
         </View>
 
         {/* ── Нема аналізу — CTA ── */}
-        {!lastAnalysis && (
+        {!selectedAnalysis && (
           <TouchableOpacity
             style={styles.analysisCta}
             onPress={() =>
@@ -941,6 +1039,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFA' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   topPadding: { height: 16 },
+
+  // Picker
+  pickerBlock: { marginHorizontal: 16, marginBottom: 12 },
+  pickerLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  pickerList: { paddingRight: 20 },
 
   // Try-On banner
   tryOnBanner: {
