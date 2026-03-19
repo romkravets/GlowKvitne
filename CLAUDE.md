@@ -51,6 +51,7 @@ Five-level hierarchy:
   - `checkAnalysisStatus(analysisId)` → `GET /api/analysis/:id/status`
   - `getAnalysis(analysisId)` → `GET /api/analysis/:id` — full analysis with photo URLs
   - `getUserAnalyses()` → `GET /api/analysis/user` — list of user's analyses (max 20, sorted newest first); returns `{ analyses: Analysis[], count: number }`; used by `PaletteScreen`, `GalleryScreen`, `MyAnalysesScreen`
+  - `generatePdf(analysisId)` → `GET /api/analysis/:id/pdf` — Premium only; generates PDF Style Guide, uploads to Firebase Storage, returns `{ url }` (signed URL, 7 days); frontend calls `Share.share({ url })` (iOS) or `Share.share({ message: url })` (Android)
   - `pollAnalysisStatus(id, onStatus, maxAttempts, interval, signal)` — polls until `completed`/`failed`
   - `deleteAnalysis(analysisId)` → `DELETE /api/analysis/:id`
   - `virtualTryOn({ imageBase64, prompt })` → `POST /api/virtual-tryon` — AI image editing

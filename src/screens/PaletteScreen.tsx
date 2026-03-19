@@ -15,10 +15,13 @@ import {
   ActivityIndicator,
   Dimensions,
   Alert,
+  Share,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationProps } from '../navigation/types';
-import { getUserAnalyses, type Analysis } from '../api/analysisApi';
+import { getUserAnalyses, generatePdf, type Analysis } from '../api/analysisApi';
+import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 const SWATCH_W = (width - 40 - 16) / 3;
@@ -179,9 +182,13 @@ const pick = StyleSheet.create({
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 const PaletteScreen: React.FC<NavigationProps> = ({ navigation }) => {
+  const { user } = useAuth();
+  const isPremium = user?.subscription?.plan === 'premium';
+
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -199,6 +206,38 @@ const PaletteScreen: React.FC<NavigationProps> = ({ navigation }) => {
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleDownloadPdf = async () => {
+    if (!isPremium) {
+      Alert.alert('Premium', 'PDF Style Guide доступний у Premium підписці', [
+        {
+          text: 'Переглянути підписку',
+          onPress: () =>
+            navigation.navigate('ProfileTab', {
+              screen: 'Subscription',
+            } as any),
+        },
+        { text: 'Скасувати', style: 'cancel' },
+      ]);
+      return;
+    }
+    const analysisId = selectedId || (analyses[0] as any)?._id;
+    if (!analysisId) return;
+
+    setPdfLoading(true);
+    try {
+      const { url } = await generatePdf(analysisId);
+      await Share.share(
+        Platform.OS === 'ios'
+          ? { url, title: 'GlowKvitne Style Guide' }
+          : { message: url, title: 'GlowKvitne Style Guide' },
+      );
+    } catch (e: any) {
+      Alert.alert('Помилка', e?.response?.data?.error || e.message || 'Не вдалося згенерувати PDF');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -360,12 +399,17 @@ const PaletteScreen: React.FC<NavigationProps> = ({ navigation }) => {
 
         {/* ── CTA ── */}
         <TouchableOpacity
-          style={styles.ctaBtn}
-          onPress={() =>
-            Alert.alert('У розробці', 'Функція завантаження PDF в розробці')
-          }
+          style={[styles.ctaBtn, pdfLoading && styles.ctaBtnDisabled]}
+          onPress={handleDownloadPdf}
+          disabled={pdfLoading}
         >
-          <Text style={styles.ctaBtnText}>📥 Завантажити PDF</Text>
+          {pdfLoading ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <Text style={styles.ctaBtnText}>
+              {isPremium ? '📥 Завантажити PDF' : '🔒 PDF Style Guide'}
+            </Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -486,6 +530,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   ctaBtnText: { fontSize: 16, fontWeight: '600', color: '#FFF' },
+  ctaBtnDisabled: { opacity: 0.6 },
   secondaryBtn: {
     backgroundColor: '#FFF',
     borderWidth: 1,

@@ -368,6 +368,26 @@ export async function pollAnalysisStatus(
   throw new Error('Час очікування вичерпано. Спробуйте пізніше.');
 }
 
+/**
+ * Генерує PDF Style Guide і повертає підписаний URL (Firebase Storage, 7 днів).
+ * Доступно тільки для Premium. Кидає помилку 403 якщо план не premium.
+ */
+export async function generatePdf(
+  analysisId: string,
+): Promise<{ url: string }> {
+  const token = await getAuthToken();
+  if (!token) throw new Error('Необхідна авторизація');
+
+  const response = await axios.get<{ url: string }>(
+    `${API_CONFIG.baseURL}/api/analysis/${analysisId}/pdf`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 30000,
+    },
+  );
+  return response.data;
+}
+
 // ── Virtual Try-On ────────────────────────────────────────────────────────────
 
 export interface VirtualTryOnRequest {

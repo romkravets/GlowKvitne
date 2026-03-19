@@ -2,7 +2,7 @@
  * Analysis Results Screen — оновлено під нову схему MongoDB
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,13 @@ import {
   Share,
   Alert,
   Dimensions,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationProps } from '../navigation/types';
-import { Analysis } from '../api/analysisApi';
+import { Analysis, generatePdf } from '../api/analysisApi';
+import { useAuth } from '../context/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -258,6 +261,41 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
   route,
 }) => {
   const { analysisResult } = route.params;
+  const { user } = useAuth();
+  const isPremium = user?.subscription?.plan === 'premium';
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!isPremium) {
+      Alert.alert('Premium', 'PDF Style Guide доступний у Premium підписці', [
+        {
+          text: 'Переглянути підписку',
+          onPress: () =>
+            navigation.navigate('ProfileTab', {
+              screen: 'Subscription',
+            } as any),
+        },
+        { text: 'Скасувати', style: 'cancel' },
+      ]);
+      return;
+    }
+    const analysisId = (analysisResult as any)._id;
+    if (!analysisId) return;
+    setPdfLoading(true);
+    try {
+      const { url } = await generatePdf(analysisId);
+      await Share.share(
+        Platform.OS === 'ios'
+          ? { url, title: 'GlowKvitne Style Guide' }
+          : { message: url, title: 'GlowKvitne Style Guide' },
+      );
+    } catch (e: any) {
+      Alert.alert('Помилка', e?.response?.data?.error || e.message || 'Не вдалося згенерувати PDF');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const la = analysisResult.larsonAnalysis as any;
 
   // ── Larson Style Type ─────────────────────────────────────────
@@ -888,12 +926,17 @@ const AnalysisResultsScreen: React.FC<AnalysisResultsScreenProps> = ({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() =>
-            Alert.alert('У розробці', 'Функція завантаження PDF в розробці')
-          }
+          style={[styles.secondaryButton, pdfLoading && styles.secondaryButtonDisabled]}
+          onPress={handleDownloadPdf}
+          disabled={pdfLoading}
         >
-          <Text style={styles.secondaryButtonText}>📥 Завантажити PDF</Text>
+          {pdfLoading ? (
+            <ActivityIndicator color="#C49B63" />
+          ) : (
+            <Text style={styles.secondaryButtonText}>
+              {isPremium ? '📥 Завантажити PDF' : '🔒 PDF Style Guide'}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -1219,6 +1262,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 30,
   },
+  secondaryButtonDisabled: { opacity: 0.6 },
   secondaryButtonText: { fontSize: 16, fontWeight: '600', color: '#C49B63' },
 });
 
