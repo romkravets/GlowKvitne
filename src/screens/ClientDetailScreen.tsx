@@ -12,10 +12,13 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { getClient, deleteClient, Client } from '../api/clientsApi';
+import { getClient, deleteClient, linkAnalysis, Client } from '../api/clientsApi';
+import { getUserAnalyses, Analysis } from '../api/analysisApi';
 import { NavigationProps } from '../navigation/types';
 
 const ClientDetailScreen: React.FC<NavigationProps> = ({ navigation, route }) => {
@@ -24,6 +27,10 @@ const ClientDetailScreen: React.FC<NavigationProps> = ({ navigation, route }) =>
   const [client, setClient] = useState<Client | null>(null);
   const [analyses, setAnalyses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [linkModalVisible, setLinkModalVisible] = useState(false);
+  const [userAnalyses, setUserAnalyses] = useState<Analysis[]>([]);
+  const [loadingAnalyses, setLoadingAnalyses] = useState(false);
+  const [linking, setLinking] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -60,6 +67,33 @@ const ClientDetailScreen: React.FC<NavigationProps> = ({ navigation, route }) =>
         },
       ],
     );
+  };
+
+  const openLinkModal = async () => {
+    setLinkModalVisible(true);
+    try {
+      setLoadingAnalyses(true);
+      const data = await getUserAnalyses();
+      const completed = data.analyses.filter(a => a.status === 'completed');
+      setUserAnalyses(completed);
+    } catch (err: any) {
+      Alert.alert('Помилка', err?.response?.data?.error || err.message);
+    } finally {
+      setLoadingAnalyses(false);
+    }
+  };
+
+  const handleLinkAnalysis = async (analysisId: string) => {
+    try {
+      setLinking(analysisId);
+      await linkAnalysis(clientId, analysisId);
+      setLinkModalVisible(false);
+      await load();
+    } catch (err: any) {
+      Alert.alert('Помилка', err?.response?.data?.error || err.message);
+    } finally {
+      setLinking(null);
+    }
   };
 
   if (loading) {
@@ -106,13 +140,18 @@ const ClientDetailScreen: React.FC<NavigationProps> = ({ navigation, route }) =>
 
         {/* Analyses */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Аналізи ({analyses.length})
-          </Text>
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>
+              Аналізи ({analyses.length})
+            </Text>
+            <TouchableOpacity style={styles.linkBtn} onPress={openLinkModal}>
+              <Text style={styles.linkBtnText}>＋ Прикріпити</Text>
+            </TouchableOpacity>
+          </View>
 
           {analyses.length === 0 ? (
             <Text style={styles.noAnalyses}>
-              Ще немає прикріплених аналізів.{'\n'}Зробіть аналіз та прикріпіть його до цього клієнта.
+              Ще немає прикріплених аналізів.{'\n'}Натисніть "Прикріпити", щоб додати.
             </Text>
           ) : (
             analyses.map(a => (
@@ -139,6 +178,76 @@ const ClientDetailScreen: React.FC<NavigationProps> = ({ navigation, route }) =>
             ))
           )}
         </View>
+
+        {/* Link Analysis Modal */}
+        <Modal
+          visible={linkModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setLinkModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Вибрати аналіз</Text>
+                <TouchableOpacity onPress={() => setLinkModalVisible(false)}>
+                  <Text style={styles.modalClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {loadingAnalyses ? (
+                <ActivityIndicator color="#C49B63" style={styles.modalLoader} />
+              ) : userAnalyses.length === 0 ? (
+                <Text style={styles.modalEmpty}>
+                  Немає завершених аналізів.{'\n'}Спочатку зробіть аналіз.
+                </Text>
+              ) : (
+                <FlatList
+                  data={userAnalyses}
+                  keyExtractor={a => a._id}
+                  contentContainerStyle={styles.modalList}
+                  renderItem={({ item }) => {
+                    const isLinking = linking === item._id;
+                    const alreadyLinked = analyses.some(a => a._id === item._id);
+                    return (
+                      <TouchableOpacity
+                        style={[
+                          styles.modalCard,
+                          alreadyLinked && styles.modalCardLinked,
+                        ]}
+                        onPress={() => !alreadyLinked && handleLinkAnalysis(item._id)}
+                        disabled={alreadyLinked || isLinking}
+                      >
+                        <View style={styles.modalCardBody}>
+                          <Text style={styles.modalCardSeason}>
+                            {item.larsonAnalysis?.seasonalType?.primary ||
+                              item.kibbeAnalysis?.kibbeType?.result ||
+                              '—'}
+                          </Text>
+                          {item.archetypeAnalysis?.blendName && (
+                            <Text style={styles.modalCardStyle}>
+                              {item.archetypeAnalysis.blendName}
+                            </Text>
+                          )}
+                          <Text style={styles.modalCardDate}>
+                            {new Date(item.createdAt).toLocaleDateString('uk-UA')}
+                          </Text>
+                        </View>
+                        {isLinking ? (
+                          <ActivityIndicator color="#C49B63" size="small" />
+                        ) : alreadyLinked ? (
+                          <Text style={styles.modalCardDone}>✓</Text>
+                        ) : (
+                          <Text style={styles.modalCardArrow}>＋</Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* Actions */}
         <TouchableOpacity
@@ -199,14 +308,28 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
     color: '#a0a0a0',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    marginBottom: 4,
   },
+  linkBtn: {
+    backgroundColor: 'rgba(196,155,99,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(196,155,99,0.4)',
+  },
+  linkBtnText: { fontSize: 12, fontWeight: '600', color: '#C49B63' },
 
   infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   infoIcon: { fontSize: 16, width: 22 },
@@ -236,6 +359,57 @@ const styles = StyleSheet.create({
   analysisTier: { fontSize: 12, fontWeight: '600', color: '#C49B63' },
   analysisStyle: { fontSize: 13, color: '#a0a0a0', marginBottom: 4 },
   analysisDate: { fontSize: 12, color: '#555' },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#1a1a2e',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: 32,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: '#fff' },
+  modalClose: { fontSize: 18, color: '#a0a0a0', padding: 4 },
+  modalLoader: { margin: 32 },
+  modalEmpty: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+    margin: 32,
+  },
+  modalList: { padding: 16, gap: 10 },
+  modalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  modalCardLinked: {
+    borderColor: 'rgba(196,155,99,0.4)',
+    backgroundColor: 'rgba(196,155,99,0.08)',
+  },
+  modalCardBody: { flex: 1 },
+  modalCardSeason: { fontSize: 15, fontWeight: '600', color: '#fff', marginBottom: 2 },
+  modalCardStyle: { fontSize: 13, color: '#a0a0a0', marginBottom: 2 },
+  modalCardDate: { fontSize: 12, color: '#555' },
+  modalCardArrow: { fontSize: 20, color: '#C49B63', fontWeight: '700' },
+  modalCardDone: { fontSize: 18, color: '#C49B63', fontWeight: '700' },
 
   deleteBtn: {
     paddingVertical: 15,
