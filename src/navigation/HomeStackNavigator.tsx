@@ -22,14 +22,9 @@ const HomeStackNavigator: React.FC = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: '#FFFFFF',
-        },
-        headerTintColor: '#1A1A1A',
-        headerTitleStyle: {
-          fontWeight: '600',
-          fontSize: 18,
-        },
+        headerStyle: { backgroundColor: '#1a1a2e' },
+        headerTintColor: '#C49B63',
+        headerTitleStyle: { fontWeight: '600', fontSize: 18, color: '#fff' },
         headerShadowVisible: false,
         animation: 'slide_from_right',
       }}

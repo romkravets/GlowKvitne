@@ -31,14 +31,9 @@ const ProfileStackNavigator: React.FC = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: '#FFFFFF',
-        },
-        headerTintColor: '#1A1A1A',
-        headerTitleStyle: {
-          fontWeight: '600',
-          fontSize: 18,
-        },
+        headerStyle: { backgroundColor: '#1a1a2e' },
+        headerTintColor: '#C49B63',
+        headerTitleStyle: { fontWeight: '600', fontSize: 18, color: '#fff' },
         headerShadowVisible: false,
       }}
     >
@@ -116,7 +111,7 @@ const ProfileStackNavigator: React.FC = () => {
       />
       <Stack.Screen
         name="AnalysisResults"
-        component={AnalysisResultsScreen}
+        component={AnalysisResultsScreen as any}
         options={{
           title: 'Результати',
           headerShown: false,

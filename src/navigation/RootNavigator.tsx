@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StatusBar } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { RootStackParamList } from './types';
@@ -52,6 +53,8 @@ const RootNavigator: React.FC = () => {
   }
 
   return (
+    <>
+      <StatusBar barStyle="light-content" backgroundColor="#1a1a2e" translucent={false} />
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {isFirstLaunch ? (
         // Перший запуск - показуємо онбординг
@@ -68,6 +71,7 @@ const RootNavigator: React.FC = () => {
         <Stack.Screen name="Main" component={MainNavigator} />
       )}
     </Stack.Navigator>
+    </>
   );
 };
 
