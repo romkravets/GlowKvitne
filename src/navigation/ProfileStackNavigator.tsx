@@ -125,17 +125,32 @@ const ProfileStackNavigator: React.FC = () => {
       <Stack.Screen
         name="MyClients"
         component={MyClientsScreen}
-        options={{ title: 'Мої клієнти' }}
+        options={{
+          title: 'Мої клієнти',
+          headerStyle: { backgroundColor: '#1a1a2e' },
+          headerTintColor: '#C49B63',
+          headerTitleStyle: { color: '#fff', fontWeight: '600', fontSize: 18 },
+        }}
       />
       <Stack.Screen
         name="AddClient"
         component={AddClientScreen}
-        options={{ title: 'Новий клієнт' }}
+        options={{
+          title: 'Новий клієнт',
+          headerStyle: { backgroundColor: '#1a1a2e' },
+          headerTintColor: '#C49B63',
+          headerTitleStyle: { color: '#fff', fontWeight: '600', fontSize: 18 },
+        }}
       />
       <Stack.Screen
         name="ClientDetail"
         component={ClientDetailScreen}
-        options={({ route }) => ({ title: route.params.clientName })}
+        options={({ route }) => ({
+          title: route.params.clientName,
+          headerStyle: { backgroundColor: '#1a1a2e' },
+          headerTintColor: '#C49B63',
+          headerTitleStyle: { color: '#fff', fontWeight: '600', fontSize: 18 },
+        })}
       />
     </Stack.Navigator>
   );

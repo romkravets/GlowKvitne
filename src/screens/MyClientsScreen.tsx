@@ -3,7 +3,7 @@
  * Список клієнтів стиліста
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,27 @@ const MyClientsScreen: React.FC<NavigationProps> = ({ navigation }) => {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // Кнопка "Назад" — якщо є куди йти в стеку, йдемо назад;
+  // якщо прийшли cross-tab (напр. з HomeScreen) — переходимо на HomeTab
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.getParent()?.navigate('HomeTab');
+            }
+          }}
+          style={styles.backBtn}
+        >
+          <Text style={styles.backBtnText}>‹ Назад</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const renderItem = ({ item }: { item: Client }) => (
     <TouchableOpacity
@@ -161,6 +182,8 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   fabText: { fontSize: 28, color: '#fff', lineHeight: 32 },
+  backBtn: { paddingHorizontal: 8, paddingVertical: 4 },
+  backBtnText: { fontSize: 16, color: '#C49B63', fontWeight: '600' },
 });
 
 export default MyClientsScreen;

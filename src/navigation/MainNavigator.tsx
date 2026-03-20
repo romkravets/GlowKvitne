@@ -6,6 +6,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Platform, StyleSheet } from 'react-native';
+import { Home, Compass, Shirt, Palette, User } from 'lucide-react-native';
 import { MainTabParamList } from './types';
 
 // Stack Navigators для кожного табу
@@ -15,30 +16,30 @@ import GalleryStackNavigator from './GalleryStackNavigator';
 import PaletteStackNavigator from './PaletteStackNavigator';
 import ProfileStackNavigator from './ProfileStackNavigator';
 
-// Icons (можна замінити на react-native-vector-icons)
-const TabIcon = ({ name, focused }: { name: string; focused: boolean }) => {
-  const icons: { [key: string]: string } = {
-    HomeTab: focused ? '🏠' : '🏡',
-    ExploreTab: focused ? '🔍' : '🔎',
-    GalleryTab: focused ? '👗' : '👚',
-    PaletteTab: focused ? '🎨' : '🖌️',
-    ProfileTab: focused ? '👤' : '👥',
-  };
-  return icons[name] || '•';
-};
-
 const Tab = createBottomTabNavigator<MainTabParamList>();
+
+function getTabIcon(routeName: string, color: string, size: number) {
+  const props = { color, size, strokeWidth: 1.8 };
+  switch (routeName) {
+    case 'HomeTab':    return <Home {...props} />;
+    case 'ExploreTab': return <Compass {...props} />;
+    case 'GalleryTab': return <Shirt {...props} />;
+    case 'PaletteTab': return <Palette {...props} />;
+    case 'ProfileTab': return <User {...props} />;
+    default:           return null;
+  }
+}
 
 const MainNavigator: React.FC = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#C49B63', // Золотий акцент
-        tabBarInactiveTintColor: '#999999',
+        tabBarActiveTintColor: '#C49B63',
+        tabBarInactiveTintColor: '#555566',
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabBarLabel,
-        tabBarIcon: ({ focused }) => TabIcon({ name: route.name, focused }),
+        tabBarIcon: ({ color, size }) => getTabIcon(route.name, color, size ?? 24),
       })}
     >
       <Tab.Screen
@@ -87,28 +88,28 @@ const MainNavigator: React.FC = () => {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#121220',
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: 'rgba(196,155,99,0.15)',
     height: Platform.OS === 'ios' ? 85 : 65,
     paddingTop: 8,
     paddingBottom: Platform.OS === 'ios' ? 25 : 8,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 8,
+        elevation: 12,
       },
     }),
   },
   tabBarLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: 2,
   },
 });
 
