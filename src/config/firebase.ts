@@ -103,13 +103,15 @@ export const SUBSCRIPTION_PLANS = {
     name: 'Стиліст',
     price: { UAH: 999 },
     features: {
-      analysesPerMonth: 50,
-      outfitsPerMonth: 200,
-      clientManagement: true,
+      analysesPerMonth: -1,        // необмежено (як преміум)
+      outfitsPerMonth: -1,         // необмежено (як преміум)
       detailedAnalysis: true,
       celebrityTwins: true,
       pdfExport: true,
       prioritySupport: true,
+      clientManagement: true,
+      brandedPdf: true,
+      virtualTryOnUnlimited: true,
     },
   },
 };
