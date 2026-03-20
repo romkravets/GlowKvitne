@@ -3,6 +3,7 @@ import React, {
   useState,
   useContext,
   useEffect,
+  useCallback,
   ReactNode,
 } from 'react';
 import {
@@ -29,7 +30,7 @@ interface User {
   displayName: string | null;
   photoURL: string | null;
   subscription?: {
-    plan: 'free' | 'basic' | 'premium';
+    plan: 'free' | 'basic' | 'premium' | 'stylist';
     status: string;
     expiresAt?: string;
     usage?: {
@@ -451,14 +452,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  // Refresh user data from backend
-  const refreshUser = async () => {
+  // Refresh user data from backend (стабільна референція через useCallback)
+  const refreshUser = useCallback(async () => {
     const auth = getAuth();
     const firebaseUser = auth.currentUser;
     if (firebaseUser) {
       await fetchUserData(firebaseUser);
     }
-  };
+  // fetchUserData визначена в тому ж closure і не змінюється
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const value = {
     user,

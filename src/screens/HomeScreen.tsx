@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { checkApiStatus } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { navigateToSubscription } from '../navigation/helpers';
@@ -16,40 +17,50 @@ type HomeScreenProps = {
   navigation: NativeStackNavigationProp<HomeStackParamList, 'Home'>;
 };
 
-// Дзеркалює canUserAnalyze з billing.js
+const PLAN_LIMITS: Record<string, number> = {
+  free: 1,
+  basic: 5,
+  premium: -1,
+  stylist: -1,
+};
+
 function canUserAnalyze(user: any): boolean {
   if (!user?.subscription) return false;
-  const plan = user.subscription.plan || 'free';
-  const limits: Record<string, number> = { free: 1, basic: 5, premium: -1 };
-  const limit = limits[plan] ?? 1;
+  const limit =
+    user.subscription.limits?.analysesPerMonth ??
+    PLAN_LIMITS[user.subscription.plan || 'free'] ??
+    1;
   if (limit === -1) return true;
   const used = user.subscription.usage?.analysesThisMonth || 0;
   if (used < limit) return true;
   const singles = (user.purchases || []).filter(
     (p: any) => p.productId === 'single_analysis' && p.status === 'completed',
   );
-  const bought = singles.reduce(
-    (s: number, p: any) => s + (p.quantity || 1),
-    0,
-  );
+  const bought = singles.reduce((s: number, p: any) => s + (p.quantity || 1), 0);
   const usedP = singles.reduce((s: number, p: any) => s + (p.used || 0), 0);
   return usedP < bought;
 }
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [isServerRunning, setIsServerRunning] = useState<boolean | null>(null);
 
-  const limitReached = user ? !canUserAnalyze(user) : false;
-  const hasResult = !!user?.latestAnalysis?.analysisId;
   const plan = user?.subscription?.plan || 'free';
   const analysesUsed = user?.subscription?.usage?.analysesThisMonth || 0;
-  const limits: Record<string, number> = { free: 1, basic: 5, premium: -1 };
-  const analysesLimit = limits[plan] ?? 1;
+  const analysesLimit =
+    user?.subscription?.limits?.analysesPerMonth ??
+    PLAN_LIMITS[plan] ??
+    1;
+  const limitReached = user ? !canUserAnalyze(user) : false;
+  const hasResult = !!user?.latestAnalysis?.analysisId;
+  const isUnlimited = analysesLimit === -1;
 
   useEffect(() => {
     checkServer();
   }, []);
+
+  // Оновлюємо usage при поверненні на екран (після аналізу)
+  useFocusEffect(useCallback(() => { refreshUser(); }, [refreshUser]));
 
   const checkServer = async () => {
     const status = await checkApiStatus();
@@ -88,9 +99,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <View
             style={[styles.statusBar, limitReached && styles.statusBarWarning]}
           >
-            {analysesLimit === -1 ? (
+            {isUnlimited ? (
               <Text style={styles.statusText}>
-                ✅ Безліміт аналізів (Premium)
+                ✅ Безліміт аналізів ({plan === 'stylist' ? 'Стиліст' : 'Premium'})
               </Text>
             ) : limitReached ? (
               <Text style={[styles.statusText, styles.statusTextWarning]}>
@@ -109,7 +120,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <FeatureItem
             icon="🎨"
             title="Larson Color Analysis"
-            description="12 сезонних колоротипів"
+            description="16 сезонних колоротипів"
           />
           <FeatureItem
             icon="⭐"

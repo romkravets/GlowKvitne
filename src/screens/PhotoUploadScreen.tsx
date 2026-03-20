@@ -24,25 +24,19 @@ type PhotoUploadScreenProps = {
 // ─────────────────────────────────────────────────────────────
 // Перевірка ліміту на фронті (дзеркалює billing.js на бекенді)
 // ─────────────────────────────────────────────────────────────
+const PLAN_LIMITS: Record<string, number> = { free: 1, basic: 5, premium: -1, stylist: -1 };
+
 function canUserAnalyze(user: any): boolean {
   if (!user?.subscription) return false;
 
   const plan = user.subscription.plan || 'free';
-  const status = user.subscription.status || 'expired';
-  const expiresAt = user.subscription.expiresAt;
+  // Пріоритет: ліміти з беку (billing.js), fallback на локальну таблицю
+  const limit =
+    user.subscription.limits?.analysesPerMonth ??
+    PLAN_LIMITS[plan] ??
+    1;
 
-  // Перевірка активності підписки (крім free)
-  if (plan !== 'free') {
-    const expiresAtDate = expiresAt ? new Date(expiresAt) : null;
-    if (status !== 'active' || !expiresAtDate || expiresAtDate <= new Date()) {
-      // підписка неактивна — поводимось як free
-    }
-  }
-
-  const limits: Record<string, number> = { free: 1, basic: 5, premium: -1 };
-  const limit = limits[plan] ?? 1;
-
-  if (limit === -1) return true; // безліміт
+  if (limit === -1) return true; // безліміт (premium / stylist)
 
   const used = user.subscription.usage?.analysesThisMonth || 0;
   if (used < limit) return true;
@@ -66,70 +60,117 @@ function canUserAnalyze(user: any): boolean {
 // ─────────────────────────────────────────────────────────────
 // Upsell Modal
 // ─────────────────────────────────────────────────────────────
+type PlanId = 'free' | 'basic' | 'premium' | 'stylist';
+
+const PLAN_TIER: Record<PlanId, number> = { free: 0, basic: 1, premium: 2, stylist: 3 };
+
+const UPSELL_PLANS: Array<{
+  id: PlanId;
+  name: string;
+  price: string;
+  features: string[];
+  highlight?: boolean;
+}> = [
+  {
+    id: 'basic',
+    name: 'Basic',
+    price: '199 ₴/міс',
+    features: ['✓ 5 аналізів', '✓ Макіяж + волосся'],
+  },
+  {
+    id: 'premium',
+    name: 'Premium',
+    price: '399 ₴/міс',
+    features: ['✓ Безліміт аналізів', '✓ Celebrity Twins', '✓ PDF Export'],
+    highlight: true,
+  },
+  {
+    id: 'stylist',
+    name: 'Стиліст',
+    price: '999 ₴/міс',
+    features: ['✓ Безліміт + клієнти', '✓ Брендований PDF', '✓ Virtual Try-On'],
+  },
+];
+
 const UpsellModal = ({
   visible,
   onClose,
   onUpgrade,
   onViewResult,
   hasResult,
+  currentPlan = 'free',
 }: {
   visible: boolean;
   onClose: () => void;
   onUpgrade: () => void;
   onViewResult: () => void;
   hasResult: boolean;
-}) => (
-  <Modal
-    visible={visible}
-    transparent
-    animationType="slide"
-    onRequestClose={onClose}
-  >
-    <View style={modal.overlay}>
-      <View style={modal.container}>
-        <Text style={modal.emoji}>✨</Text>
-        <Text style={modal.title}>Ліміт аналізів вичерпано</Text>
-        <Text style={modal.subtitle}>
-          На безкоштовному плані доступний 1 аналіз на місяць.{'\n'}
-          Оновіть план щоб отримати більше!
-        </Text>
+  currentPlan?: PlanId;
+}) => {
+  const currentTier = PLAN_TIER[currentPlan] ?? 0;
+  const availablePlans = UPSELL_PLANS.filter(p => PLAN_TIER[p.id] > currentTier);
 
-        {/* Плани */}
-        <View style={modal.plansRow}>
-          <View style={modal.planBox}>
-            <Text style={modal.planName}>Basic</Text>
-            <Text style={modal.planPrice}>199 ₴/міс</Text>
-            <Text style={modal.planFeature}>✓ 5 аналізів</Text>
-            <Text style={modal.planFeature}>✓ Макіяж + волосся</Text>
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={modal.overlay}>
+        <View style={modal.container}>
+          <Text style={modal.emoji}>✨</Text>
+          <Text style={modal.title}>Ліміт аналізів вичерпано</Text>
+          <Text style={modal.subtitle}>
+            Оновіть план щоб отримати більше аналізів!
+          </Text>
+
+          {/* Плани вищі за поточний */}
+          <View style={modal.plansRow}>
+            {availablePlans.map(plan => (
+              <View
+                key={plan.id}
+                style={[modal.planBox, plan.highlight && modal.planBoxPremium]}
+              >
+                {plan.highlight && (
+                  <Text style={modal.planBadge}>🔥 Топ</Text>
+                )}
+                <Text
+                  style={[
+                    modal.planName,
+                    plan.highlight && modal.planNameHighlight,
+                  ]}
+                >
+                  {plan.name}
+                </Text>
+                <Text style={modal.planPrice}>{plan.price}</Text>
+                {plan.features.map(f => (
+                  <Text key={f} style={modal.planFeature}>{f}</Text>
+                ))}
+              </View>
+            ))}
           </View>
-          <View style={[modal.planBox, modal.planBoxPremium]}>
-            <Text style={modal.planBadge}>🔥 Топ</Text>
-            <Text style={[modal.planName, { color: '#e94560' }]}>Premium</Text>
-            <Text style={modal.planPrice}>399 ₴/міс</Text>
-            <Text style={modal.planFeature}>✓ Безліміт</Text>
-            <Text style={modal.planFeature}>✓ Celebrity Twins</Text>
-          </View>
-        </View>
 
-        <TouchableOpacity style={modal.upgradeButton} onPress={onUpgrade}>
-          <Text style={modal.upgradeButtonText}>Обрати план</Text>
-        </TouchableOpacity>
-
-        {hasResult && (
-          <TouchableOpacity style={modal.resultButton} onPress={onViewResult}>
-            <Text style={modal.resultButtonText}>
-              Переглянути попередній результат
-            </Text>
+          <TouchableOpacity style={modal.upgradeButton} onPress={onUpgrade}>
+            <Text style={modal.upgradeButtonText}>Обрати план</Text>
           </TouchableOpacity>
-        )}
 
-        <TouchableOpacity style={modal.closeButton} onPress={onClose}>
-          <Text style={modal.closeButtonText}>Закрити</Text>
-        </TouchableOpacity>
+          {hasResult && (
+            <TouchableOpacity style={modal.resultButton} onPress={onViewResult}>
+              <Text style={modal.resultButtonText}>
+                Переглянути попередній результат
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={modal.closeButton} onPress={onClose}>
+            <Text style={modal.closeButtonText}>Закрити</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  </Modal>
-);
+    </Modal>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // Main Screen
@@ -353,6 +394,7 @@ export default function PhotoUploadScreen({
         onUpgrade={handleUpgrade}
         onViewResult={handleViewResult}
         hasResult={hasLatestResult}
+        currentPlan={(user?.subscription?.plan as PlanId) ?? 'free'}
       />
     </>
   );
@@ -531,4 +573,5 @@ const modal = StyleSheet.create({
 
   closeButton: { alignItems: 'center', paddingVertical: 10 },
   closeButtonText: { fontSize: 14, color: '#666' },
+  planNameHighlight: { color: '#e94560' },
 });
